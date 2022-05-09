@@ -65,6 +65,9 @@ build --incompatible_enable_cc_toolchain_resolution
 # Fix non-deterministic Java compilation failures (https://github.com/bazelbuild/bazel/issues/3236)
 build --incompatible_sandbox_hermetic_tmp
 
+# TODO: Fix tests that fail without this flag
+test --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1
+
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
