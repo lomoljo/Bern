@@ -745,9 +745,6 @@ public final class CcCommon implements StarlarkValue {
       // We don't need to perform the above checks against outIncludesPath again since any errors
       // must have manifested in includesPath already.
       PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
-      if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(ruleContext.getGenfilesFragment().getRelative(outIncludesPath));
-      }
       result.add(ruleContext.getBinFragment().getRelative(outIncludesPath));
     }
     return result;

@@ -60,15 +60,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
 
   @Option(
-      name = "incompatible_merge_genfiles_directory",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, the genfiles directory is folded into the bin directory.")
-  public boolean mergeGenfilesDirectory;
-
-  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -916,7 +907,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.executionInfoModifier = executionInfoModifier;
     host.commandLineBuildVariables = commandLineBuildVariables;
     host.enforceConstraints = enforceConstraints;
-    host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.platformInOutputDir = platformInOutputDir;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;

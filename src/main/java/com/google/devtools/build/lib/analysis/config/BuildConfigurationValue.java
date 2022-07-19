@@ -376,10 +376,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return outputDirectories.getGenfilesDirectory(repositoryName);
   }
 
-  public boolean hasSeparateGenfilesDirectory() {
-    return !outputDirectories.mergeGenfilesDirectory();
-  }
-
   /**
    * Returns the directory where coverage-related artifacts and metadata files should be stored.
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting

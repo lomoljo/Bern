@@ -1223,7 +1223,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathOrder() throws Exception {
-    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",
         "cc_library(",
         "    name = 'bar',",
@@ -1237,8 +1236,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
     String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
     // Local include paths come first.
     assertContainsSublist(
@@ -1247,13 +1244,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-isystem",
             "foo/foo",
             "-isystem",
-            genfilesDir + "/foo/foo",
-            "-isystem",
             binDir + "/foo/foo",
             "-isystem",
             "foo/bar",
-            "-isystem",
-            genfilesDir + "/foo/bar",
             "-isystem",
             binDir + "/foo/bar"));
   }

@@ -462,31 +462,8 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisabledGenfilesDontShowUpInSystemIncludePaths() throws Exception {
-    scratch.file(
-        "bang/BUILD",
-        "cc_library(name = 'bang',",
-        "           srcs = ['bang.cc'],",
-        "           includes = ['bang_includes'])");
-    String includesRoot = "bang/bang_includes";
-
-    useConfiguration("--noincompatible_merge_genfiles_directory");
-    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir =
-        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .contains(genfilesDir);
-
-    useConfiguration("--incompatible_merge_genfiles_directory");
-    foo = getConfiguredTarget("//bang:bang");
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .doesNotContain(genfilesDir);
-  }
-
-  @Test
   public void testUseIsystemForIncludes() throws Exception {
     // Tests the effect of --use_isystem_for_includes.
-    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
         "no_includes/BUILD",
         "cc_library(name = 'no_includes',",
@@ -507,7 +484,6 @@ public class CcCommonTest extends BuildViewTestCase {
             .addAll(
                 noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())

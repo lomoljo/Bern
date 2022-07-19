@@ -124,8 +124,6 @@ public class OutputDirectories {
   private final ArtifactRoot testlogsDirectory;
   private final ArtifactRoot middlemanDirectory;
 
-  private final boolean mergeGenfilesDirectory;
-
   private final boolean siblingRepositoryLayout;
 
   private final Path execRoot;
@@ -158,7 +156,6 @@ public class OutputDirectories {
     this.middlemanDirectory =
         OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
-    this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
     this.execRoot = directories.getExecRoot(mainRepositoryName.getName());
   }
@@ -289,11 +286,7 @@ public class OutputDirectories {
 
   /** Returns the genfiles directory for this build configuration. */
   ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return mergeGenfilesDirectory
-        ? getBinDirectory(repositoryName)
-        : siblingRepositoryLayout
-            ? buildDerivedRoot("genfiles", repositoryName, false)
-            : genfilesDirectory;
+    return getBinDirectory(repositoryName);
   }
 
   /**
@@ -343,10 +336,6 @@ public class OutputDirectories {
 
   String getOutputDirName() {
     return outputDirName;
-  }
-
-  boolean mergeGenfilesDirectory() {
-    return mergeGenfilesDirectory;
   }
 
   BlazeDirectories getDirectories() {
