@@ -863,11 +863,14 @@ public class RemoteExecutionService {
     static class DirectoryMetadata {
       private final ImmutableList<FileMetadata> files;
       private final ImmutableList<SymlinkMetadata> symlinks;
+      private final ImmutableList<Path> emptyDirectories;
 
       private DirectoryMetadata(
-          ImmutableList<FileMetadata> files, ImmutableList<SymlinkMetadata> symlinks) {
+          ImmutableList<FileMetadata> files, ImmutableList<SymlinkMetadata> symlinks,
+          ImmutableList<Path> emptyDirectories) {
         this.files = files;
         this.symlinks = symlinks;
+        this.emptyDirectories = emptyDirectories;
       }
 
       public ImmutableList<FileMetadata> files() {
@@ -876,6 +879,10 @@ public class RemoteExecutionService {
 
       public ImmutableList<SymlinkMetadata> symlinks() {
         return symlinks;
+      }
+
+      public ImmutableList<Path> emptyDirectories() {
+        return emptyDirectories;
       }
     }
 
@@ -931,6 +938,7 @@ public class RemoteExecutionService {
               parent.getRelative(symlink.getName()), PathFragment.create(symlink.getTarget())));
     }
 
+    ImmutableList.Builder<Path> emptyDirectoriesBuilder = ImmutableList.builder();
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
       Path childPath = parent.getRelative(directoryNode.getName());
       Directory childDir =
@@ -938,9 +946,15 @@ public class RemoteExecutionService {
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
       filesBuilder.addAll(childMetadata.files());
       symlinksBuilder.addAll(childMetadata.symlinks());
+      emptyDirectoriesBuilder.addAll(childMetadata.emptyDirectories());
+      if (childMetadata.files().isEmpty() && childMetadata.symlinks().isEmpty()
+          && childMetadata.emptyDirectories().isEmpty()) {
+        emptyDirectoriesBuilder.add(childPath);
+      }
     }
 
-    return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build());
+    return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build(),
+        emptyDirectoriesBuilder.build());
   }
 
   ActionResultMetadata parseActionResultMetadata(
@@ -972,7 +986,12 @@ public class RemoteExecutionService {
         childrenMap.put(digestUtil.compute(childDir), childDir);
       }
 
-      directories.put(path, parseDirectory(path, directoryTree.getRoot(), childrenMap));
+      DirectoryMetadata metadata = parseDirectory(path, directoryTree.getRoot(), childrenMap);
+      directories.put(path, metadata);
+      for (Path emptyDir : metadata.emptyDirectories()) {
+        directories.put(emptyDir,
+            new DirectoryMetadata(ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
+      }
     }
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
