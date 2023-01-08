@@ -413,3 +413,49 @@ def read_user_netrc(ctx):
     if not ctx.path(netrcfile).exists:
         return {}
     return read_netrc(ctx, netrcfile)
+
+def get_repo_patcher():
+    if native.existing_rule("bazel_module_patcher"):
+        # The Label for the tool is main repo relative. The path you get back is
+        # made absolute so it resolves even though we have cd'ed into the repo
+        # we are building.
+        # TODO(aiuto): I don't like having the name here, but we can not load it
+        # from here.  Perhaps.. toolchain?, @module_patcher:patcher is alias to
+        # the program?
+        return Label("@bazel_module_patcher//:add_package_metadata.py")
+    return None
+
+
+# Some repositories do strange things and are essentially non-patachable.
+# For example, they might use a macro to call native.package() and not
+# pass along kwargs.
+# TODO(aiuto): This should be injectable from @bazel_module_patcher, but
+# we can not do conditional load.
+WELL_KNOWN_NON_PATACHABLE_REPOS = (
+    "com_github_grpc_grpc",
+    "com_envoyproxy_protoc_gen_validate",
+    "remote_java_tools",
+)
+
+def full_repo_patch(ctx, repo_metadata):
+    # Some special repositories are too intertwined with the way Bazel
+    # functions to muck around with. Trust that they are set up correctly.
+    if ctx.name in ("bazel_module_patcher", "platforms", "rules_license"):
+        return
+    if ctx.name in WELL_KNOWN_NON_PATACHABLE_REPOS:
+        return
+    if not ctx.attr.repo_patcher:
+        return
+    cmd = [ctx.path(ctx.attr.repo_patcher)]
+    for k, v in repo_metadata.items():
+        # TODO(aiuto): Do we escape quote these better, or write to a file
+        # or disallow really broken values.
+        if v:
+            cmd.append("%s=%s" % (k, v))
+    print("=== patching repo:", ctx.name, cmd)
+    st = ctx.execute(cmd)
+    if st.return_code:
+        fail("Error applying patch command %s:\n%s%s" %
+             (cmd, st.stdout, st.stderr))
+    print('patch output\n        ', '\n        '.join(st.stdout.split('\n')))  # DBG
+    print('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')  # DBG

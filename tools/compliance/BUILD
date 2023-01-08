@@ -1,17 +1,29 @@
 # Tools for gathering OSS licenses
 
 load("@rules_license//rules:compliance.bzl", "check_license")
+load("@rules_license//rules:sbom.bzl", "generate_sbom")
 
 licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "@bazel_module_patcher//:srcs",
+    ],
     visibility = [
         "//tools:__subpackages__",
         "@bazel_tools//tools:__subpackages__",
     ],
 )
+
+generate_sbom(
+    name = "bazel_sbom",
+    out = "bazel_sbom.txt",
+    deps = [
+        "//src:bazel-bin_nojdk",
+    ],
+)
+
 
 check_license(
     name = "check_bazel",

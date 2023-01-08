@@ -59,8 +59,20 @@ bind(
 
 # We must control the version of rules_license we use, so we load ours before
 # any other repo can bring it in through their deps.
-dist_http_archive(
+#dist_http_archive(
+#    name = "rules_license",
+#)
+local_repository(
     name = "rules_license",
+    path = "../rules_license/",
+)
+
+# Note to reviewer. The name is reserved. Repository rules look for it.
+new_local_repository(
+    name = "bazel_module_patcher",
+    path = "tools/compliance/module_patcher",
+    build_file = "//tools/compliance:module_patcher.BUILD",
+    workspace_file = "//tools/compliance:module_patcher/module_patcher.WORKSPACE",
 )
 
 # For src/test/shell/bazel:test_srcs
