@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CriticalPathMetricsEvent;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
@@ -214,6 +216,12 @@ class MetricsCollector {
         .collect(toImmutableList());
   }
 
+  @SuppressWarnings("unused")
+  @Subscribe
+  public void onCriticalPathMetricsEvent(CriticalPathMetricsEvent event) {
+    addCriticalPathTimeToTimingMetrics(event.getTotalTime());
+  }
+
   private BuildMetrics createBuildMetrics() {
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
@@ -308,6 +316,11 @@ class MetricsCollector {
         .setNumAnalyses(numAnalyses.get())
         .setNumBuilds(numBuilds.get())
         .build();
+  }
+
+  private void addCriticalPathTimeToTimingMetrics(Duration criticalPathTime) {
+    long criticalPathTimeMillis = criticalPathTime.toMillis();
+    timingMetrics.setCriticalPathTime(Durations.fromMillis(criticalPathTimeMillis));
   }
 
   private TimingMetrics finishTimingMetrics() {
