@@ -202,6 +202,10 @@ public class ExecutionTool {
     this.spawnStrategyRegistry = spawnStrategyRegistry;
   }
 
+  SpawnStrategyRegistry getSpawnStrategyRegistry() {
+    return spawnStrategyRegistry;
+  }
+
   Executor getExecutor() throws AbruptExitException {
     if (executor == null) {
       executor = createExecutor();
