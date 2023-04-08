@@ -83,8 +83,7 @@ public class StandaloneModule extends BlazeModule {
             env.getBlazeWorkspace().getBinTools(),
             ProcessWrapper.fromCommandEnvironment(env),
             env.getXattrProvider(),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE);
+            new RunfilesTreeUpdater(env.getOutputService()));
 
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
