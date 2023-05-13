@@ -91,6 +91,30 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "critical_path_proto",
+    srcs = [
+        "critical_path.proto",
+    ],
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+    ],
+)
+
+java_proto_library(
+    name = "critical_path_java_proto",
+    deps = [
+        ":critical_path_proto",
+    ],
+)
+
+java_library_srcs(
+    name = "critical_path_java_proto_srcs",
+    deps = [
+        ":critical_path_java_proto",
+    ],
+)
+
+proto_library(
     name = "failure_details_proto",
     srcs = ["failure_details.proto"],
     deps = ["@com_google_protobuf//:descriptor_proto"],
@@ -272,6 +296,7 @@ filegroup(
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":command_server_java_proto_srcs",
+        ":critical_path_java_proto_srcs",
         ":failure_details_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",

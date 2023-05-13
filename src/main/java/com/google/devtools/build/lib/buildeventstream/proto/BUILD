@@ -28,6 +28,7 @@ proto_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_proto",
         "//src/main/protobuf:command_line_proto",
+        "//src/main/protobuf:critical_path_proto",
         "//src/main/protobuf:failure_details_proto",
         "//src/main/protobuf:invocation_policy_proto",
         "@com_google_protobuf//:duration_proto",

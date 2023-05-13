@@ -20,6 +20,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
 import "src/main/protobuf/command_line.proto";
+import "src/main/protobuf/critical_path.proto";
 import "src/main/protobuf/failure_details.proto";
 import "src/main/protobuf/invocation_policy.proto";
 
@@ -223,6 +224,7 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
+  // Next id: 28.
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -250,6 +252,7 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
+    build.bazel.bep.CriticalPath.BepId critical_path = 27;
   }
 }
 
@@ -1188,6 +1191,8 @@ message ConvenienceSymlink {
 // events as children. More details, which are specific to the kind of event
 // that is observed, is provided in the payload. More options for the payload
 // might be added in the future.
+//
+// Next id: 30.
 message BuildEvent {
   reserved 11, 19;
   BuildEventId id = 1;
@@ -1217,5 +1222,6 @@ message BuildEvent {
     WorkspaceConfig workspace_info = 25;
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
+    build.bazel.bep.CriticalPath critical_path = 29;
   }
 }
