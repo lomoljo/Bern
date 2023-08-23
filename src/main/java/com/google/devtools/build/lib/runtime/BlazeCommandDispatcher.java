@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -320,7 +321,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeOptionHandler optionHandler =
         new BlazeOptionHandler(
             runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-    DetailedExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
+    EventHandler invocationPolicyEventHandler =
+        runtime
+                .getStartupOptionsProvider()
+                .getOptions(BlazeServerStartupOptions.class)
+                .warnOnInvocationPolicyOverrides
+            ? storedEventHandler
+            : NullEventHandler.INSTANCE;
+    DetailedExitCode earlyExitCode =
+        optionHandler.parseOptions(args, storedEventHandler, invocationPolicyEventHandler);
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
@@ -609,7 +618,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         optionHandler =
             new BlazeOptionHandler(
                 runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-        earlyExitCode = optionHandler.parseOptions(args, reporter);
+        // We already handled events for flags in the first parse - don't re-emit them.
+        earlyExitCode = optionHandler.parseOptions(args, reporter, NullEventHandler.INSTANCE);
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(

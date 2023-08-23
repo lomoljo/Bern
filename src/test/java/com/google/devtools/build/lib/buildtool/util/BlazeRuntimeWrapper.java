@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -193,7 +194,7 @@ public class BlazeRuntimeWrapper {
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
             command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
-    initializeOptionsParser(commandAnnotation);
+    initializeOptionsParser(commandAnnotation, events.reporter());
     commandCreated = true;
     if (env != null) {
       runtime.afterCommand(env, BlazeCommandResult.success());
@@ -265,7 +266,7 @@ public class BlazeRuntimeWrapper {
    * Initializes a new options parser, parsing all the options set by {@link
    * #addOptions(String...)}.
    */
-  private void initializeOptionsParser(Command commandAnnotation) throws OptionsParsingException {
+  private void initializeOptionsParser(Command commandAnnotation, EventHandler eventHandler) throws OptionsParsingException {
     // Create the options parser and parse all the options collected so far
     optionsParser = createOptionsParser(commandAnnotation);
     optionsParser.parse(optionsToParse);
@@ -273,7 +274,10 @@ public class BlazeRuntimeWrapper {
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(
-            runtime.getModuleInvocationPolicy(), Level.FINE, /*conversionContext=*/ null);
+            runtime.getModuleInvocationPolicy(),
+            eventHandler,
+            Level.FINE,
+            /*conversionContext=*/ null);
     try {
       optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
     } catch (OptionsParsingException e) {
