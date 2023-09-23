@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -21,6 +22,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -43,7 +45,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.List;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -58,6 +63,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private EventBus eventBus;
   private Reporter reporter;
   private boolean enabled;
+  private static Lock countLock = new ReentrantLock();
 
   private boolean statsSummary;
   private long commandStartMillis;
@@ -65,6 +71,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionEndMillis;
   private SpawnStats spawnStats;
   private Path profilePath;
+  private static final long UNKNOWN_CPU_TIME = -1;
+  private Duration cpuUserTimeForActions = Duration.ofMillis(0);
+  private Duration cpuSystemTimeForActions = Duration.ofMillis(0);
+  private Duration cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
   private AtomicBoolean executionStarted;
 
   @Override
@@ -95,6 +105,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
       criticalPathComputer = new CriticalPathComputer(actionKeyContext);
       eventBus.register(criticalPathComputer);
     }
+    cpuUserTimeForActions = Duration.ofMillis(0);
+    cpuSystemTimeForActions = Duration.ofMillis(0);
+    cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
   }
 
   @Subscribe
@@ -134,6 +147,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+    cpuUserTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionUserTimeInMs(), cpuUserTimeForActions);
+    cpuSystemTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionSystemTimeInMs(), cpuSystemTimeForActions);
   }
 
   @Subscribe
@@ -185,6 +200,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
+          Duration cpuTime = Profiler.getProcessCpuTimeMaybe();
+          if (cpuTime != null) {
+            cpuTimeForBazelJvm = Duration.ofMillis(cpuTime.toMillis());
+          }
           Profiler.instance().stop();
           event
               .getResult()
@@ -216,6 +235,14 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     (now - commandStartMillis) / 1000.0,
                     overheadTime / 1000.0,
                     executionTime / 1000.0)));
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "CPU time %s (user %s, system %s, bazel jvm %s)",
+                    formatCpuTime(sumCpuTimes(cpuUserTimeForActions.toMillis(), cpuSystemTimeForActions.toMillis(), cpuTimeForBazelJvm.toMillis())),
+                    formatCpuTime(cpuUserTimeForActions.toMillis()),
+                    formatCpuTime(cpuSystemTimeForActions.toMillis()),
+                    formatCpuTime(cpuTimeForBazelJvm.toMillis()))));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));
@@ -232,5 +259,42 @@ public class BuildSummaryStatsModule extends BlazeModule {
       }
       profilePath = null;
     }
+  }
+
+  private static String formatCpuTime(long milliseconds) {
+    if (milliseconds == UNKNOWN_CPU_TIME) {
+      return "???s";
+    } else {
+      return String.format("%.2fs", milliseconds / 1000.0);
+    }
+  }
+
+  //If anyone of the CPU time(cpuUserTimeActions, cpuSystemTimeActions and cpuTimeBazelJvm) is UNKNOWN, then the total CPU time become UNKNOWN.
+  private static long sumCpuTimes(long cpuUserTimeActions, long cpuSystemTimeActions, long cpuTimeBazelJvm) {
+    if ((cpuUserTimeActions == UNKNOWN_CPU_TIME) || (cpuSystemTimeActions == UNKNOWN_CPU_TIME) || (cpuTimeBazelJvm == UNKNOWN_CPU_TIME)) {
+      return UNKNOWN_CPU_TIME;
+    } else {
+      return cpuUserTimeActions + cpuSystemTimeActions + cpuTimeBazelJvm;
+    }
+  }
+  
+  private static Duration addCpuTime(int sumDuration, Duration termDuration) {
+    countLock.lock();
+    try {
+      if ((sumDuration != 0) && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+        termDuration = termDuration.plusMillis(sumDuration);
+      } else {
+        termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
+      }
+    } finally {
+       countLock.unlock();
+    }
+    return termDuration;
+  }
+
+  @VisibleForTesting
+  void setCpuTimeForBazelJvm(Duration time)
+  {
+    this.cpuTimeForBazelJvm = time;
   }
 }
