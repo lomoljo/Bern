@@ -76,6 +76,7 @@ import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import io.grpc.Status.Code;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -220,7 +221,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
           acceptCachedResult = false;
         } else {
           try {
-            return downloadAndFinalizeSpawnResult(
+            return downloadAndFinalizeSpawnResult(context,
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
@@ -307,6 +308,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
             try {
               return downloadAndFinalizeSpawnResult(
+                      context,
                   action,
                   result,
                   result.cacheHit(),
@@ -418,6 +420,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private SpawnResult downloadAndFinalizeSpawnResult(
+          SpawnExecutionContext context,
       RemoteAction action,
       RemoteActionResult result,
       boolean cacheHit,
@@ -433,6 +436,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
     InMemoryOutput inMemoryOutput;
     try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
       inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
+    }
+
+    var aem = spawn.getActionExecutionInfo();
+    if (aem != null) {
+      System.err.println(context.getPathResolver().toPath(aem));
+      try (var s = context.getPathResolver().toPath(aem).getOutputStream()) {
+        result.getExecutionMetadata().writeTo(s);
+      }
     }
 
     fetchTime.stop();
