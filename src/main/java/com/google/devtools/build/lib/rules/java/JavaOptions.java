@@ -602,6 +602,7 @@ public class JavaOptions extends FragmentOptions {
       exec.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
     } else {
       exec.jvmOpts = hostJvmOpts;
+      exec.hostJvmOpts = hostJvmOpts;
     }
 
     exec.javacOpts = hostJavacOpts;
