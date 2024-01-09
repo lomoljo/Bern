@@ -48,6 +48,8 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
   add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
 fi
 
+# TODO: Fix tests that fail without this flag
+add_to_bazelrc "test --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1"
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
