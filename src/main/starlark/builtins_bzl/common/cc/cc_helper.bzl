@@ -75,7 +75,7 @@ def _build_linking_context_from_libraries(ctx, libraries):
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_library_extension_valid(file.path)):
         return True
     return False
 
@@ -526,7 +526,7 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_versioned_shared_library_extension_valid(shared_library_name):
+def _is_versioned_library_extension_valid(shared_library_name):
     # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
     # must match VERSIONED_SHARED_LIBRARY.
     for ext in (".so.", ".dylib."):
@@ -552,7 +552,7 @@ def _is_valid_shared_library_name(shared_library_name):
         shared_library_name.endswith(".wasm")):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library_name)
+    return _is_versioned_library_extension_valid(shared_library_name)
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
@@ -560,7 +560,7 @@ def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+    return _is_versioned_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []
