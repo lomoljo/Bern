@@ -32,9 +32,6 @@ build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolch
 
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
-# When cross-compiling, the local Java runtime, which is used by default, will not be compatible
-# with the target.
-build:windows_arm64 --java_runtime_version=remotejdk_11
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
@@ -53,6 +50,12 @@ build:windows --host_cxxopt=/std:c++17
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
+
+# Run tests and tools on the same JDK as bundled with Bazel.
+build --java_runtime_version=remotejdk_21
+build --tool_java_runtime_version=remotejdk_21
+# TODO: Remove this when rules_java ships a remotejdk_21 for ARM64 Windows.
+build:windows_arm64 --java_runtime_version=remotejdk_11
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 common --incompatible_disallow_empty_glob
