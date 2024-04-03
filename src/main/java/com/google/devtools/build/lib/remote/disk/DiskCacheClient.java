@@ -335,11 +335,11 @@ public class DiskCacheClient implements RemoteCacheClient {
       File outFile = temp.getPathFile();
       Files.copy(in, outFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
       // FIXME: Do we need it?
-      try (FileOutputStream out = new FileOutputStream(outFile)) {
-        // Fsync temp before we rename it to avoid data loss in the case of machine
-        // crashes (the OS may reorder the writes and the rename).
-        out.getFD().sync();
-      }
+      // try (FileOutputStream out = new FileOutputStream(outFile)) {
+      //   // Fsync temp before we rename it to avoid data loss in the case of machine
+      //   // crashes (the OS may reorder the writes and the rename).
+      //   out.getFD().sync();
+      // }
       path.getParentDirectory().createDirectoryAndParents();
       temp.renameTo(path);
     } catch (IOException e) {
