@@ -42,11 +42,14 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -281,8 +284,11 @@ public class DiskCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, Digest digest, Path file) {
     return executorService.submit(
         () -> {
-          try (InputStream in = file.getInputStream()) {
-            saveFile(digest, Store.CAS, in);
+          try {
+            
+            directSaveFile(digest, Store.CAS, file);
+          } catch (IOException e) {
+            throw e;
           }
           return null;
         });
@@ -316,6 +322,24 @@ public class DiskCacheClient implements RemoteCacheClient {
     String hash = digest.getHash();
     // Create the file in a subfolder to bypass possible folder file count limits.
     return root.getChild(store.toString()).getChild(hash.substring(0, 2)).getChild(hash);
+  }
+
+  private void directSaveFile(Digest digest, Store store, Path inputFile) throws IOException {
+    Path path = toPath(digest, store);
+
+    if (refresh(path)) {
+      return;
+    }
+
+    java.nio.file.Path inputNIOPath = new File(inputFile.asFragment().toString()).toPath();
+    java.nio.file.Path outputNIOPath = new File(path.asFragment().toString()).toPath();
+
+    try {
+      path.getParentDirectory().createDirectoryAndParents();
+      Files.copy(inputNIOPath, outputNIOPath, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+      throw e;
+    }
   }
 
   private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
