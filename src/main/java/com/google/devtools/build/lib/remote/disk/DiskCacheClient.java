@@ -131,22 +131,28 @@ public class DiskCacheClient implements RemoteCacheClient {
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
   }
-
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
+    return download(digest, out, store, null);
+  }
+  private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store, DirectCopyOutputStream directCopyOut) {
     return executorService.submit(
         () -> {
           Path path = toPath(digest, store);
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          if (out instanceof DirectCopyOutputStream) {
-            DirectCopyOutputStream directCopyOutputStream = (DirectCopyOutputStream)out;
+          if (directCopyOut != null) {
             try {
-              directCopyFile(path, directCopyOutputStream.path);
+              directCopyFile(path, directCopyOut.path);
+              directCopyOut.setDirectCopyed(true);
             } catch (IOException e) {
               try (InputStream in = path.getInputStream()) {
                 ByteStreams.copy(in, out);
               }
+            }
+          } else {
+            try (InputStream in = path.getInputStream()) {
+              ByteStreams.copy(in, out);
             }
           }
           return null;
@@ -156,16 +162,24 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+
+    @Nullable
+    DirectCopyOutputStream directCopyOut = (out instanceof DirectCopyOutputStream) ? (DirectCopyOutputStream)out : null;
+
     @Nullable
     DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, digestOut != null ? digestOut : out, Store.CAS),
+        download(digest, digestOut != null ? digestOut : out, Store.CAS, directCopyOut),
         (v) -> {
           try {
             if (digestOut != null) {
-              Utils.verifyBlobContents(digest, digestOut.digest());
+              if (directCopyOut != null) {
+                Utils.verifyBlobContents(digest, digestUtil.compute(directCopyOut.path));
+              } else {
+                Utils.verifyBlobContents(digest, digestOut.digest());
+                out.flush();
+              }
             }
-            out.flush();
             return immediateFuture(null);
           } catch (IOException e) {
             return Futures.immediateFailedFuture(e);

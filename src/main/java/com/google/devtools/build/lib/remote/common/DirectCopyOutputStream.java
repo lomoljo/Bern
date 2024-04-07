@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 
 /**
  * use direct copy or to optimize io performance. this class only use to pass output file path.
@@ -25,34 +26,53 @@ public class DirectCopyOutputStream extends OutputStream {
 
   public final Path path;
   private OutputStream out;
-
-  public DirectCopyOutputStream(OutputStream outputStream, Path path) {
+  private boolean directCopyed;
+  
+  public DirectCopyOutputStream(OutputStream out, Path path) {
     this.path = path;
-    this.out = outputStream;
+    this.out = out;
+  }
+
+  public void setDirectCopyed(boolean directCopyed){
+    this.directCopyed = directCopyed;
+  }
+
+  public boolean getDirectCopyed(){
+    return this.directCopyed;
   }
 
   @Override
   public void write(byte[] b) throws IOException {
-    out.write(b);
+    if (directCopyed == false) {
+      out.write(b);
+    }
   }
 
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
-    out.write(b, off, len);
+    if (directCopyed == false) {
+      out.write(b, off, len);
+    }
   }
 
   @Override
   public void write(int b) throws IOException {
-    out.write(b);
+    if (directCopyed == false) {
+      out.write(b);
+    }
   }
 
   @Override
   public void flush() throws IOException {
-    out.flush();
+    if (directCopyed == false) {
+      out.flush();
+    }
   }
 
   @Override
   public void close() throws IOException {
-    out.close();
+    if (directCopyed == false) {
+      out.close();
+    }
   }
 }
