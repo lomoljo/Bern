@@ -42,14 +42,11 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -138,9 +135,9 @@ public class DiskCacheClient implements RemoteCacheClient {
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          java.nio.file.Path ioPath = new File(path.asFragment().toString()).toPath();
-          // FIXME: is there need try catch?
-          Files.copy(ioPath, out);
+          try (InputStream in = path.getInputStream()) {
+            ByteStreams.copy(in, out);
+          }
           return null;
         });
   }
@@ -332,10 +329,8 @@ public class DiskCacheClient implements RemoteCacheClient {
     Path temp = getTempPath();
 
     try {
-      File outFile = temp.getPathFile();
-      Files.copy(in, outFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      // FIXME: Do we need it?
-      try (FileOutputStream out = new FileOutputStream(outFile)) {
+      try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
+        ByteStreams.copy(in, out);
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
         out.getFD().sync();
