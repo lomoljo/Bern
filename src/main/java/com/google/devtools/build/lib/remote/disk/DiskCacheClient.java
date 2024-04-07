@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.DirectCopyOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -138,8 +139,15 @@ public class DiskCacheClient implements RemoteCacheClient {
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+          if (out instanceof DirectCopyOutputStream) {
+            DirectCopyOutputStream directCopyOutputStream = (DirectCopyOutputStream)out;
+            try {
+              directCopyFile(path, directCopyOutputStream.path);
+            } catch (IOException e) {
+              try (InputStream in = path.getInputStream()) {
+                ByteStreams.copy(in, out);
+              }
+            }
           }
           return null;
         });
@@ -324,6 +332,16 @@ public class DiskCacheClient implements RemoteCacheClient {
     return root.getChild(store.toString()).getChild(hash.substring(0, 2)).getChild(hash);
   }
 
+  private void directCopyFile(Path src, Path dest) throws IOException {
+    java.nio.file.Path srcNIOPath = new File(src.asFragment().toString()).toPath();
+    java.nio.file.Path destNIOPath = new File(dest.asFragment().toString()).toPath();
+    try {
+      Files.copy(srcNIOPath, destNIOPath, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+      throw e;
+    }
+  }
+
   private void directSaveFile(Digest digest, Store store, Path inputFile) throws IOException {
     Path path = toPath(digest, store);
 
@@ -331,12 +349,9 @@ public class DiskCacheClient implements RemoteCacheClient {
       return;
     }
 
-    java.nio.file.Path inputNIOPath = new File(inputFile.asFragment().toString()).toPath();
-    java.nio.file.Path outputNIOPath = new File(path.asFragment().toString()).toPath();
-
     try {
       path.getParentDirectory().createDirectoryAndParents();
-      Files.copy(inputNIOPath, outputNIOPath, StandardCopyOption.REPLACE_EXISTING);
+      directCopyFile(inputFile, path);
     } catch (IOException e) {
       throw e;
     }
