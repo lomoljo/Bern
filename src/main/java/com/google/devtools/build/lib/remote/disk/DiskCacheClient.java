@@ -350,7 +350,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     java.nio.file.Path srcNIOPath = new File(src.asFragment().toString()).toPath();
     java.nio.file.Path destNIOPath = new File(dest.asFragment().toString()).toPath();
     try {
-      Files.copy(srcNIOPath, destNIOPath, StandardCopyOption.REPLACE_EXISTING);
+      Files.copy(srcNIOPath, destNIOPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
     } catch (IOException e) {
       throw e;
     }
