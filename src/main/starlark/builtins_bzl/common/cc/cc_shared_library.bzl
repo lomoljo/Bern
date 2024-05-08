@@ -686,6 +686,7 @@ def _cc_shared_library_impl(ctx):
     additional_inputs = []
     additional_outputs = []
     link_variables = {}
+    additional_output_groups = {}
 
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
@@ -694,6 +695,7 @@ def _cc_shared_library_impl(ctx):
         else:
             pdb_file = ctx.actions.declare_file(ctx.label.name + ".pdb")
         additional_outputs.append(pdb_file)
+        additional_output_groups["pdb_file"] = depset([pdb_file])
 
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
         object_files = []
@@ -711,6 +713,7 @@ def _cc_shared_library_impl(ctx):
         generated_def_file = None
         if def_parser != None:
             generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, ctx.label.name)
+            additional_output_groups["def_file"] = depset([generated_def_file])
         custom_win_def_file = ctx.file.win_def_file
         win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
         link_variables["def_file_path"] = win_def_file.path
@@ -786,6 +789,7 @@ def _cc_shared_library_impl(ctx):
         OutputGroupInfo(
             main_shared_library_output = depset(library),
             interface_library = depset(interface_library),
+            **additional_output_groups
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,
@@ -1073,15 +1077,20 @@ def cc_shared_library_initializer(**kwargs):
     """Initializes dynamic_deps_attrs"""
     if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
         # Propagate an aspect if dynamic_deps attribute is specified.
+        # Use += for lists rather than extend or append to allow for the case where deps
+        # is a select.
         all_deps = []
         if "deps" in kwargs:
-            all_deps.extend(kwargs["deps"])
+            all_deps += kwargs["deps"]
 
         if "linkshared" not in kwargs or not kwargs["linkshared"]:
+            # The += [...] pattern below doesn't work if malloc or link_extra_lib are
+            # themselves selects, but as of March 2024, there is no way to combine mixed
+            # selects and these attributes usually point to label flags anyway.
             if "link_extra_lib" in kwargs:
-                all_deps.append(kwargs["link_extra_lib"])
+                all_deps += [kwargs["link_extra_lib"]]
             if "malloc" in kwargs:
-                all_deps.append(kwargs["malloc"])
+                all_deps += [kwargs["malloc"]]
 
         return kwargs | {"_deps_analyzed_by_graph_structure_aspect": all_deps}
     return kwargs

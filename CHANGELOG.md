@@ -1,3 +1,82 @@
+## Release 8.0.0-pre.20240422.4 (2024-05-03)
+
+```
+Baseline: d37762b494a4e122d46a5a71e3a8cc77fa15aa25
+
+Cherry picks:
+
+   + f14c99e83b339a3f926285f62807a03dea3b0479:
+     Automated rollback of commit
+     a091d90cded797ce8f6206b56ffd6f89e27e2c76.
+   + eb70fc222755a4249759729587600de828029e71:
+     Keep aspects that relate to uncleared configured targets from
+     being cleared.
+   + e22a6938b411b3ba29a8bfcf2a18208bf28d04b0:
+     Automated rollback of commit
+     76a214932da4a9dcf73d3cfe9313e0172d20e630.
+```
+
+Incompatible changes:
+
+  - On Windows, the default msys64 root is changed to `C:/msys64`
+    instead of `C:/tools/msys64`.
+
+Important changes:
+
+  - `distribs()` at the package level is no longer legal syntax. It
+    may still be set on individual targets, even though it is a no-op.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Son Luong Ngoc, Spencer Putt, Xdng Yng.
+
+## Release 8.0.0-pre.20240415.1 (2024-04-25)
+
+```
+Baseline: 1115e526662c041214aecb3b4c9550b91f79275a
+```
+
+Important changes:
+
+  - toolchain type requirements of rules are now treated as implicit
+    dependencies in `bazel query`. This includes those defined via
+    the `toolchains` parameter of starlark `rule()` definitions.
+  - Starlark `min` and `max` buitins now allow a `key` callback,
+    similarly to `sorted`.
+
+This release contains contributions from many people at Google, as well as Alexandre Boulgakov, Brentley Jones, Cameron Martin, Emil Waijers, Fabian Meumertzheim, Xdng Yng.
+
+## Release 8.0.0-pre.20240404.3 (2024-04-17)
+
+```
+Baseline: 609aca860a91b26da7a9a6f90c98e3a67d0b4023
+
+Cherry picks:
+
+   + babc5c3be6227447018290677c1dd0e1ea1bf6cc:
+     Remove mention of non-existent `--visionos_sdk_version` flag
+   + 6288eb92b228ee25f3a1202d26d4b1c9bc25d62a:
+     Fix capitalization of Apple platforms, Xcode, “SDK”, and
+     “OS”
+   + 0f760395e04cb0accb912be128b4f363663e8d30:
+     Fix bzl error when the Xcode isn't available remotely but others
+     are
+```
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim.
+
+## Release 8.0.0-pre.20240401.3 (2024-04-11)
+
+```
+Baseline: 753dc9750714af581147f6aa338adeb07a9dcb57
+
+Cherry picks:
+
+   + 0f551a573d0a81704c6baba1109b055cce4e68ce:
+     Automated rollback of commit
+     781e8629c758db7ebe64325a558c8b5a3d98bed1.
+```
+
+Initial release.
+
 ## Release 7.1.1 (2024-03-21)
 
 ```
