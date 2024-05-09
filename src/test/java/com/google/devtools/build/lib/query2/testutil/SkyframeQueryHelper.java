@@ -349,6 +349,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       skyframeExecutor.sync(
           getReporter(),
           packageLocator,
+          ImmutableSet.of(),
           UUID.randomUUID(),
           ImmutableMap.of(),
           ImmutableMap.of(),

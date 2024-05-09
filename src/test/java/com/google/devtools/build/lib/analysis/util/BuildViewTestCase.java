@@ -352,6 +352,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageOptions,
+        ImmutableSet.of(),
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
@@ -499,6 +500,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
+        ImmutableSet.of(),
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
