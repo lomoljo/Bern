@@ -1643,6 +1643,7 @@ java_library(
         ":config/build_options",
         ":config/compilation_mode",
         ":config/core_options",
+        ":config/execution_info_modifier",
         ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",
@@ -2691,16 +2692,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "test/coverage_report",
-    srcs = ["test/CoverageReport.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
 )

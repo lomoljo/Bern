@@ -753,13 +753,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
-                        .setImports(ImmutableBiMap.of("repo1", "repo1"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext1")
+                                .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -780,13 +782,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
-                        .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .setImports(
+                                    ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -820,14 +825,17 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 10, 22))
-                        .setImports(
-                            ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 10, 22))
+                                .setDevDependency(false)
+                                .setProxyName("maven")
+                                .setImports(
+                                    ImmutableBiMap.of(
+                                        "mvn", "maven", "junit", "junit", "guava", "guava"))
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -893,14 +901,38 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(ModuleKey.ROOT)
-                        .setLocation(Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
-                        .setImports(
-                            ImmutableBiMap.of(
-                                "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
-                                "delta"))
-                        .setDevImports(ImmutableSet.of("alpha", "gamma"))
-                        .setHasDevUseExtension(true)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
+                                .setDevDependency(true)
+                                .setProxyName("myext1")
+                                .addImport("alpha", "alpha")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .addImport("beta", "beta")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 7, 23))
+                                .setDevDependency(true)
+                                .setProxyName("myext3")
+                                .addImport("gamma", "gamma")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 10, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext4")
+                                .addImport("delta", "delta")
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -993,13 +1025,24 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
-                        .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .addImport("beta", "beta")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 11, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext4")
+                                .addImport("delta", "delta")
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -1098,13 +1141,27 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
                         .setUsingModule(ModuleKey.ROOT)
-                        .setLocation(Location.fromFile("/workspace/MODULE.bazel"))
-                        .setImports(
-                            ImmutableBiMap.of(
-                                "repo_name", "repo_name", "guava", "guava", "vuaga", "vuaga"))
-                        .setDevImports(ImmutableSet.of("vuaga"))
-                        .setHasDevUseExtension(true)
-                        .setHasNonDevUseExtension(true)
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
+                                .setDevDependency(false)
+                                .addImport("repo_name", "repo_name")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 13))
+                                .setDevDependency(false)
+                                .addImport("guava", "guava")
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 5, 13))
+                                .setDevDependency(true)
+                                .addImport("vuaga", "vuaga")
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("//:repo.bzl%repo")
@@ -1475,5 +1532,79 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: in call to use_extension(), parameter 'isolate' is experimental "
             + "and thus unavailable with the current flags. It may be enabled by setting "
             + "--experimental_isolated_extension_usages");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_underDir() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//bar/...')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "invalid target pattern \"//bar/...\": register_toolchain target patterns "
+            + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_pathSyntax() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('bar/baz')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Expected absolute target patterns (must begin with '//' or '@') for 'register_toolchains'"
+            + " argument, but got 'bar/baz' as an argument");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//:whatever')",
+        "register_toolchains('//bar:all')",
+        "register_toolchains('//qux:baz')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
   }
 }

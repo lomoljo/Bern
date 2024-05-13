@@ -1011,9 +1011,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Notifies the executor that the command is complete.
-   *
-   * <p>Should be called only once per build.
+   * Notifies the executor that the command is complete. May safely be called multiple times for a
+   * single command, so callers should err on the side of calling it more frequently. Should be
+   * idempotent, so that calls after the first one in the same evaluation should be quick.
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     try {
@@ -2605,14 +2605,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
-      OptionsProvider options)
+      OptionsProvider options,
+      String commandName)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     PrecomputedValue.REPO_ENV.set(injectable(), new LinkedHashMap<>(repoEnvOption));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
-    syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
+    syncPackageLoading(
+        pathPackageLocator, commandId, clientEnv, tsgm, executors, options, commandName);
 
     if (lastAnalysisDiscarded) {
       logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
@@ -2643,7 +2645,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
-      OptionsProvider options)
+      OptionsProvider options,
+      String commandName)
       throws AbruptExitException {
     PackageOptions packageOptions = options.getOptions(PackageOptions.class);
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
