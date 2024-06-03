@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -68,7 +70,7 @@ import javax.annotation.Nullable;
 public final class SandboxModule extends BlazeModule {
 
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
-      ImmutableSet.of(SandboxStash.SANDBOX_STASH_BASE, AsynchronousTreeDeleter.MOVED_TRASH_DIR);
+      ImmutableSet.of(SandboxStash.SANDBOX_STASH_BASE, SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -568,6 +570,9 @@ public final class SandboxModule extends BlazeModule {
   @Override
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
+    for (var entry : SandboxStash.statistics.entrySet()) {
+      System.out.println(":" + entry.getKey() + " : " + entry.getValue());
+    }
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
