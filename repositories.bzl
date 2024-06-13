@@ -34,6 +34,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "com_github_grpc_grpc",
     "com_google_protobuf",
     "io_bazel_skydoc",
+    "nlohmann_json",
     "platforms",
     "rules_cc",
     "rules_go",

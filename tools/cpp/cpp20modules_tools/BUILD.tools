@@ -1,0 +1,19 @@
+package(default_visibility = ["//visibility:public"])
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)
+filegroup(
+    name = "agg-ddi-bin",
+    srcs = select({
+                   ":windows": ["agg-ddi.exe"],
+                   "//conditions:default": ["agg-ddi"],
+           }),
+)
+filegroup(
+    name = "gen-modmap-bin",
+    srcs = select({
+                   ":windows": ["gen-modmap.exe"],
+                   "//conditions:default": ["gen-modmap"],
+           }),
+)

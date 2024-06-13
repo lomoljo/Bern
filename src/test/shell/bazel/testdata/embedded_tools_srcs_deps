@@ -24,3 +24,9 @@
 //src/main/cpp/util:port
 //src/main/cpp/util:blaze_exit_code
 //src/main/cpp/util:logging
+//tools/cpp/cpp20modules_tools:agg-ddi
+//tools/cpp/cpp20modules_tools:agg-ddi-lib
+//tools/cpp/cpp20modules_tools:common
+//tools/cpp/cpp20modules_tools:gen-modmap
+//tools/cpp/cpp20modules_tools:gen-modmap-lib
+@@nlohmann_json~//:json

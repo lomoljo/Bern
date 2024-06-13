@@ -22,6 +22,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/cpp/runfiles:srcs",
+        "//tools/cpp/cpp20modules_tools:srcs",
     ],
 )
 
@@ -29,6 +30,7 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
         "//tools/cpp/runfiles:embedded_tools",
+        "//tools/cpp/cpp20modules_tools:embedded_tools",
     ],
 )
 

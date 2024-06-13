@@ -582,7 +582,18 @@ public final class Crosstool {
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.
-                "exports_files(['grep-includes', 'link_dynamic_library'])");
+                "exports_files(['grep-includes', 'link_dynamic_library'])",
+                "",
+                "filegroup(",
+                "    name = 'agg-ddi',",
+                "    srcs = ['agg-ddi.sh'],",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'gen-modmap',",
+                "    srcs = ['gen-modmap.sh'],",
+                ")"
+            );
 
     config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
     config.create(crosstoolTop + "/mock_version/x86/bin/ld");
@@ -598,6 +609,8 @@ public final class Crosstool {
     config.create(crosstoolTop + "/grep-includes");
     config.create(crosstoolTop + "/build_interface_so");
     config.create(crosstoolTop + "/link_dynamic_library");
+    config.create(crosstoolTop + "/agg-ddi.sh");
+    config.create(crosstoolTop + "/gen-modmap.sh");
   }
 
   public void writeOSX() throws IOException {
