@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -296,6 +297,16 @@ public class CppHelper {
     } catch (ExpansionException e) {
       throw new EvalException(e);
     }
+  }
+
+  static ArtifactCategory getCpp20ModuleOutputArtifactCategory(String compiler) {
+    ArtifactCategory outputCategory = ArtifactCategory.CPP_MODULE;
+    if (Objects.equals(compiler, "gcc")) {
+      outputCategory = ArtifactCategory.CPP_MODULE_GCM;
+    } else if (Objects.equals(compiler, "msvc-cl")) {
+      outputCategory = ArtifactCategory.CPP_MODULE_IFC;
+    }
+    return outputCategory;
   }
   // the DerivedArtifact type is required when using restart mechanism
   static Artifact.DerivedArtifact getCompileModuleOutputArtifact(

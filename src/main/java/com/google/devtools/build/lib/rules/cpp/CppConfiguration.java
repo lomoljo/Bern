@@ -941,7 +941,19 @@ public final class CppConfiguration extends Fragment
   public boolean experimentalCpp20Modules() {
     return cppOptions.experimentalCpp20Modules;
   }
+  @StarlarkMethod(
+          name = "experimental_cpp20_modules_with_two_phase_compilation",
+          documented = false,
+          useStarlarkThread = true)
+  public boolean experimentalCpp20ModulesWithTwoPhaseCompilationForStarlark(StarlarkThread thread)
+          throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCpp20ModulesWithTwoPhaseCompilation();
+  }
 
+  public boolean experimentalCpp20ModulesWithTwoPhaseCompilation() {
+    return cppOptions.experimentalCpp20ModulesWithTwoPhaseCompilation;
+  }
   public boolean getExperimentalCppCompileResourcesEstimation() {
     return cppOptions.experimentalCppCompileResourcesEstimation;
   }
