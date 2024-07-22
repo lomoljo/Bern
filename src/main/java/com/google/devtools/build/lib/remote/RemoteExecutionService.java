@@ -1137,7 +1137,9 @@ public class RemoteExecutionService {
     }
 
     // The expiration time for remote cache entries.
-    var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
+    var expireAtEpochMilli = remoteOptions.remoteCacheTtl.getSeconds() < 0
+      ? remoteOptions.remoteCacheTtl.getSeconds()
+      : Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
     ActionInput inMemoryOutput = null;
     AtomicReference<byte[]> inMemoryOutputData = new AtomicReference<>(null);
