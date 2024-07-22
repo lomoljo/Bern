@@ -558,10 +558,18 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         int locationIndex,
         long expireAtEpochMilli,
         @Nullable PathFragment materializationExecPath) {
-      return expireAtEpochMilli < 0
-          ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
-          : new RemoteFileArtifactValueWithExpiration(
-              digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+      if (expireAtEpochMilli == -1) {
+        return new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath);
+      }
+      if (expireAtEpochMilli == -2) {
+        return new RemoteFileArtifactValueWithServerExpiration(digest, size, locationIndex, materializationExecPath);
+      }
+      if (expireAtEpochMilli < 0) {
+        throw new UnsupportedOperationException(
+            "RemoteFileArtifactValue created with unknown expireAtEpochMilli (" + expireAtEpochMilli + ")");
+      }
+      return new RemoteFileArtifactValueWithExpiration(
+        digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
     }
 
     /**
@@ -708,6 +716,30 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean isAlive(Instant now) {
       return now.toEpochMilli() < expireAtEpochMilli;
+    }
+  }
+
+  /** A remote artifact that expires when the Bazel server terminates. */
+  private static final class RemoteFileArtifactValueWithServerExpiration extends RemoteFileArtifactValue {
+    private RemoteFileArtifactValueWithServerExpiration(
+        byte[] digest,
+        long size,
+        int locationIndex,
+        PathFragment materializationExecPath) {
+      super(digest, size, locationIndex, materializationExecPath);
+    }
+
+    @Override
+    public long getExpireAtEpochMilli() {
+      return -2;
+    }
+
+    @Override
+    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {}
+
+    @Override
+    public boolean isAlive(Instant now) {
+      return true;
     }
   }
 
