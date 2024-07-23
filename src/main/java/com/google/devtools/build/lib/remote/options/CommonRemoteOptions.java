@@ -42,6 +42,8 @@ public class CommonRemoteOptions extends OptionsBase {
               + " repeating this flag.")
   public List<RegexPatternOption> remoteDownloadRegex;
 
+  private static final String SERVER_KEYWORD = "server";
+
   @Option(
       name = "experimental_remote_cache_ttl",
       defaultValue = "3h",
@@ -54,7 +56,7 @@ public class CommonRemoteOptions extends OptionsBase {
               + " optimizations based on the blobs' TTL e.g. doesn't repeatedly call"
               + " GetActionResult in an incremental build. The value should be set slightly less"
               + " than the real TTL since there is a gap between when the server returns the"
-              + " digests and when Bazel receives them. The special value \"server\" allows entries"
+              + " digests and when Bazel receives them. The special value \"" + SERVER_KEYWORD + "\" allows entries"
               + " to remain in the remote cache for the lifetime of the Bazel server, but no longer.")
   public Duration remoteCacheTtl;
 
@@ -65,8 +67,8 @@ public class CommonRemoteOptions extends OptionsBase {
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
-      /* We recognize the magic value of "server" as a way to specify server lifetime ttl. */
-      if ("server".equals(input)) {
+      /* We recognize the magic value SERVER_KEYWORD as a way to specify server lifetime ttl. */
+      if (input.equals(SERVER_KEYWORD)) {
         return Duration.ofSeconds(-2);
       }
       if (UNITLESS_REGEX.matcher(input).matches()) {
