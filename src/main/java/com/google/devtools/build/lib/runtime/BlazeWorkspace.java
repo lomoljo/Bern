@@ -22,6 +22,7 @@ import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -306,9 +307,9 @@ public final class BlazeWorkspace {
         try (AutoProfiler p = profiledAndLogged("pruning server-lifetime entries from action cache", ProfilerTask.INFO)) {
           actionCache.removeIf(
             entry ->
-            entry.getOutputFiles().values().stream().filter(e -> e.getExpireAtEpochMilli() == -2).count() > 0 ||
+            entry.getOutputFiles().values().stream().filter(e -> e.getExpireAtEpochMilli() == RemoteFileArtifactValue.SERVER_EXPIRATION_SENTINEL).count() > 0 ||
             entry.getOutputTrees().values().stream().filter(
-              tv -> tv.childValues().values().stream().filter(e -> e.getExpireAtEpochMilli() == -2).count() > 0
+              tv -> tv.childValues().values().stream().filter(e -> e.getExpireAtEpochMilli() == RemoteFileArtifactValue.SERVER_EXPIRATION_SENTINEL).count() > 0
             ).count() > 0
           );
         }

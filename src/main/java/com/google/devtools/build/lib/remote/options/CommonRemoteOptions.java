@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
@@ -69,7 +70,7 @@ public class CommonRemoteOptions extends OptionsBase {
     public Duration convert(String input) throws OptionsParsingException {
       /* We recognize the magic value SERVER_KEYWORD as a way to specify server lifetime ttl. */
       if (input.equals(SERVER_KEYWORD)) {
-        return Duration.ofSeconds(-2);
+        return Duration.ofSeconds(RemoteFileArtifactValue.SERVER_EXPIRATION_SENTINEL);
       }
       if (UNITLESS_REGEX.matcher(input).matches()) {
         input += "s";

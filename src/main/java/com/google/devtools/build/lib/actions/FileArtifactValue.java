@@ -534,6 +534,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final int locationIndex;
     @Nullable private final PathFragment materializationExecPath;
 
+    // value of expireAtEpochMilli indicating server lifetime expiration
+    public static final long SERVER_EXPIRATION_SENTINEL = -2;
+
     private RemoteFileArtifactValue(
         byte[] digest,
         long size,
@@ -561,7 +564,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       if (expireAtEpochMilli == -1) {
         return new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath);
       }
-      if (expireAtEpochMilli == -2) {
+      if (expireAtEpochMilli == SERVER_EXPIRATION_SENTINEL) {
         return new RemoteFileArtifactValueWithServerExpiration(digest, size, locationIndex, materializationExecPath);
       }
       if (expireAtEpochMilli < 0) {
@@ -731,7 +734,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public long getExpireAtEpochMilli() {
-      return -2;
+      return SERVER_EXPIRATION_SENTINEL;
     }
 
     @Override
