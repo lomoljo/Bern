@@ -561,18 +561,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         int locationIndex,
         long expireAtEpochMilli,
         @Nullable PathFragment materializationExecPath) {
-      if (expireAtEpochMilli == -1) {
-        return new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath);
-      }
       if (expireAtEpochMilli == SERVER_EXPIRATION_SENTINEL) {
         return new RemoteFileArtifactValueWithServerExpiration(digest, size, locationIndex, materializationExecPath);
       }
-      if (expireAtEpochMilli < 0) {
-        throw new UnsupportedOperationException(
-            "RemoteFileArtifactValue created with unknown expireAtEpochMilli (" + expireAtEpochMilli + ")");
-      }
-      return new RemoteFileArtifactValueWithExpiration(
-        digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+      return expireAtEpochMilli < 0
+          ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
+          : new RemoteFileArtifactValueWithExpiration(
+              digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
     }
 
     /**
