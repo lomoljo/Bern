@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -471,7 +472,7 @@ public class TestRunnerAction extends AbstractAction
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     // TODO(b/150305897): use addUUID?
@@ -1171,7 +1172,11 @@ public class TestRunnerAction extends AbstractAction
       } else {
         TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
             computeNextRunnerAndMaxAttempts(
-                testResult, testRunnerSpawn, failedAttempts.size() + 1, actualMaxAttempts);
+                testResult,
+                testRunnerSpawn,
+                failedAttempts.size() + 1,
+                actualMaxAttempts,
+                spawnResults);
         if (nextRunnerAndAttempts != null) {
           failedAttempts.add(
               testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
@@ -1220,11 +1225,12 @@ public class TestRunnerAction extends AbstractAction
       TestAttemptResult.Result result,
       TestRunnerSpawn testRunnerSpawn,
       int numAttempts,
-      int maxAttempts)
+      int maxAttempts,
+      List<SpawnResult> results)
       throws ExecException, InterruptedException {
     checkState(result != Result.PASSED, "Should not compute retry runner if last result passed");
     if (result.canRetry() && numAttempts < maxAttempts) {
-      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner();
+      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner(results);
       if (nextRunner != null) {
         return TestRunnerSpawnAndMaxAttempts.create(nextRunner, maxAttempts);
       }

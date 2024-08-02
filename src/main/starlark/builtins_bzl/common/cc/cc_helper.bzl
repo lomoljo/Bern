@@ -15,7 +15,12 @@
 """Utility functions for C++ rules."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", _artifact_category = "artifact_category")
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    "is_versioned_shared_library_extension_valid",
+    "should_create_per_object_debug_info",
+    _artifact_category = "artifact_category",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
@@ -56,7 +61,7 @@ def _build_linking_context_from_libraries(ctx, libraries):
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and is_versioned_shared_library_extension_valid(file.path)):
         return True
     return False
 
@@ -108,16 +113,22 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         action_name = "strip",
         variables = variables,
     )
+    env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = "strip",
+        variables = variables,
+    )
     execution_info = {}
     for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
         execution_info[execution_requirement] = ""
     ctx.actions.run(
         inputs = depset(
             direct = [input],
-            transitive = [cc_toolchain.all_files],
+            transitive = [cc_toolchain._strip_files],
         ),
         outputs = [output],
         use_default_shell_env = True,
+        env = env,
         executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
         toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         execution_requirements = execution_info,
@@ -507,22 +518,6 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_versioned_shared_library_extension_valid(shared_library_name):
-    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
-    # must match VERSIONED_SHARED_LIBRARY.
-    for ext in (".so.", ".dylib."):
-        name, _, version = shared_library_name.rpartition(ext)
-        if name and version:
-            version_parts = version.split(".")
-            for part in version_parts:
-                if not part[0].isdigit():
-                    return False
-                for c in part[1:].elems():
-                    if not (c.isalnum() or c == "_"):
-                        return False
-            return True
-    return False
-
 # NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
 # it has better performance (checking for extension in a short list rather than multiple
 # string.endswith() checks)
@@ -533,7 +528,7 @@ def _is_valid_shared_library_name(shared_library_name):
         shared_library_name.endswith(".wasm")):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library_name)
+    return is_versioned_shared_library_extension_valid(shared_library_name)
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
@@ -541,7 +536,7 @@ def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+    return is_versioned_shared_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []
@@ -955,26 +950,37 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
-# file and the label of the rule that generates it (or the label of the source file itself if it
-# is an input file).
+def _calculate_artifact_label_map(attr_list, attr_name):
+    """
+    Converts a label_list attribute into a list of (Artifact, Label) tuples.
+
+    Each tuple represents an input source file and the label of the rule that generates it
+    (or the label of the source file itself if it is an input file).
+    """
+    artifact_label_map = {}
+    for attr in attr_list:
+        if DefaultInfo in attr:
+            for artifact in attr[DefaultInfo].files.to_list():
+                if "." + artifact.extension not in CC_HEADER:
+                    old_label = artifact_label_map.get(artifact, None)
+                    artifact_label_map[artifact] = attr.label
+                    if old_label != None and not _are_labels_equal(old_label, attr.label) and ("." + artifact.extension in CC_AND_OBJC or attr_name == "module_interfaces"):
+                        fail(
+                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, attr),
+                            attr = attr_name,
+                        )
+    return artifact_label_map
+
 def _get_srcs(ctx):
     if not hasattr(ctx.attr, "srcs"):
         return []
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
+    return _map_to_list(artifact_label_map)
 
-    # "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
-    artifact_label_map = {}
-    for src in ctx.attr.srcs:
-        if DefaultInfo in src:
-            for artifact in src[DefaultInfo].files.to_list():
-                if "." + artifact.extension not in CC_HEADER:
-                    old_label = artifact_label_map.get(artifact, None)
-                    artifact_label_map[artifact] = src.label
-                    if old_label != None and not _are_labels_equal(old_label, src.label) and "." + artifact.extension in CC_AND_OBJC:
-                        fail(
-                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, src),
-                            attr = "srcs",
-                        )
+def _get_cpp_module_interfaces(ctx):
+    if not hasattr(ctx.attr, "module_interfaces"):
+        return []
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.module_interfaces, "module_interfaces")
     return _map_to_list(artifact_label_map)
 
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
@@ -1187,6 +1193,17 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
         )
     )
 
+def _check_cpp_modules(ctx, feature_configuration):
+    if len(ctx.files.module_interfaces) == 0:
+        return
+    if not ctx.fragments.cpp.experimental_cpp_modules():
+        fail("requires --experimental_cpp_modules", attr = "module_interfaces")
+    if not cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "cpp_modules",
+    ):
+        fail("to use C++ modules, the feature cpp_modules must be enabled")
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1236,6 +1253,7 @@ cc_helper = struct(
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
     are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
+    get_cpp_module_interfaces = _get_cpp_module_interfaces,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
@@ -1253,4 +1271,5 @@ cc_helper = struct(
     package_source_root = _package_source_root,
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
+    check_cpp_modules = _check_cpp_modules,
 )

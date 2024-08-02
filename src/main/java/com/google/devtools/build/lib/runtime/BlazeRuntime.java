@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
+import com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
@@ -101,6 +102,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -136,7 +138,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -189,7 +190,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
-  private final Supplier<Downloader> downloaderSupplier;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -216,8 +216,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
-      Supplier<Downloader> downloaderSupplier) {
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -247,7 +246,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.authHeadersProviderMap =
         Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
-    this.downloaderSupplier = downloaderSupplier;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -400,11 +398,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 bugReporter,
                 workerProcessMetricsCollector,
                 env.getLocalResourceManager(),
+                options.collectSkyframeCounts
+                    ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
+                    : null,
                 options.collectWorkerDataInProfiler,
                 options.collectLoadAverageInProfiler,
                 options.collectSystemNetworkUsage,
                 options.collectResourceEstimation,
-                options.collectPressureStallIndicators));
+                options.collectPressureStallIndicators,
+                options.collectSkyframeCounts));
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -443,7 +445,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return new ProfilerStartedEvent(profileName, profilePath, streamingContext);
+    return new ProfilerStartedEvent(profileName, profilePath, format, streamingContext);
   }
 
   public FileSystem getFileSystem() {
@@ -538,7 +540,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
-          .setStableMemoryParameters(options.memoryProfileStableHeapParameters);
+          .setStableMemoryParameters(
+              options.memoryProfileStableHeapParameters,
+              env.getOptions()
+                  .getOptions(MemoryPressureOptions.class)
+                  .jvmHeapHistogramInternalObjectPattern
+                  .regexPattern());
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {
@@ -617,15 +624,37 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   /**
    * Hook method called by the BlazeCommandDispatcher after the dispatch of each command. Returns a
    * new exit code in case exceptions were encountered during cleanup.
+   *
+   * @param forceKeepStateForTesting ensure that Skyframe state is not cleared despite what the
+   *     command line says. This is useful for some tests that exercise {@code
+   *     --nokeep_state_after_build} but still want to make assertions over said state. Should only
+   *     ever be true for tests.
    */
   @VisibleForTesting
-  public BlazeCommandResult afterCommand(CommandEnvironment env, BlazeCommandResult commandResult) {
+  public BlazeCommandResult afterCommand(
+      boolean forceKeepStateForTesting, CommandEnvironment env, BlazeCommandResult commandResult) {
     this.env = null;
 
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
     DetailedExitCode moduleExitCode = null;
+
+    try {
+      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
+    } catch (InterruptedException e) {
+      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
+      moduleExitCode =
+          chooseMoreImportantWithFirstIfTie(
+              moduleExitCode,
+              InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
+      Thread.currentThread().interrupt();
+    }
+
+    // Ensure deterministic ordering of doing the metrics upload before everything else that
+    // happens when BuildCompleteEvent is posted.
+    env.getEventBus().post(new CommandPrecompleteEvent());
+
     for (BlazeModule module : blazeModules) {
       try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
         module.afterCommand();
@@ -642,22 +671,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // a commands unless the server crashes, in which case no inmemory state will linger for the
     // next build anyway.
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (!commonOptions.keepStateAfterBuild) {
+    if (!commonOptions.keepStateAfterBuild && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
-    }
-
-    // Build-related commands already call this hook in BuildTool#stopRequest, but non-build
-    // commands might also need to notify the SkyframeExecutor. It's called in #stopRequest so that
-    // timing metrics for builds can be more accurate (since this call can be slow).
-    try {
-      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
-    } catch (InterruptedException e) {
-      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
-      moduleExitCode =
-          chooseMoreImportantWithFirstIfTie(
-              moduleExitCode,
-              InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
-      Thread.currentThread().interrupt();
     }
 
     BlazeCommandResult finalCommandResult;
@@ -835,7 +850,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     for (OptionDefinition optionDefinition : startupOptions) {
-      Type optionType = optionDefinition.getField().getType();
+      Type optionType = optionDefinition.getType();
       prefixes.add("--" + optionDefinition.getOptionName());
       if (optionType == boolean.class || optionType == TriState.class) {
         prefixes.add("--no" + optionDefinition.getOptionName());
@@ -1163,6 +1178,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
+    PathFragment realExecRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
@@ -1183,14 +1199,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     FileSystem nativeFs = null;
-    Path execRootBasePath = null;
+    Optional<Root> virtualSourceRoot = Optional.empty();
+    Optional<Path> virtualExecRootBase = Optional.empty();
     for (BlazeModule module : blazeModules) {
-      BlazeModule.ModuleFileSystem moduleFs =
-          module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+      ModuleFileSystem moduleFs = module.getFileSystem(options, realExecRootBase);
       if (moduleFs != null) {
-        execRootBasePath = moduleFs.virtualExecRootBase();
         Preconditions.checkState(nativeFs == null, "more than one module returns a file system");
         nativeFs = moduleFs.fileSystem();
+        virtualSourceRoot = moduleFs.virtualSourceRoot();
+        virtualExecRootBase = moduleFs.virtualExecRootBase();
       }
     }
 
@@ -1255,9 +1272,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
-    if (execRootBasePath == null) {
-      execRootBasePath = outputBasePath.getRelative(ServerDirectories.EXECROOT);
-    }
+    Path execRootBasePath = virtualExecRootBase.orElseGet(() -> fs.getPath(realExecRootBase));
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
@@ -1273,6 +1288,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             outputBasePath,
             outputUserRootPath,
             execRootBasePath,
+            virtualSourceRoot.orElse(null),
             startupOptions.installMD5);
     Clock clock = BlazeClock.instance();
     BlazeRuntime.Builder runtimeBuilder =
@@ -1438,10 +1454,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return repositoryRemoteExecutorFactory;
   }
 
-  public Supplier<Downloader> getDownloaderSupplier() {
-    return downloaderSupplier;
-  }
-
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link com.google.devtools.build.lib.packages.RuleClassProvider}
@@ -1568,8 +1580,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getAuthHeadersProvidersMap(),
-              serverBuilder.getRepositoryRemoteExecutorFactory(),
-              serverBuilder.getDownloaderSupplier());
+              serverBuilder.getRepositoryRemoteExecutorFactory());
       AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;

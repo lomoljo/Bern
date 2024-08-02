@@ -269,6 +269,7 @@ public final class CcCompilationHelper {
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
+  private final LinkedHashMap<Artifact, CppSource> moduleInterfaceSources = new LinkedHashMap<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
@@ -516,6 +517,27 @@ public final class CcCompilationHelper {
   @CanIgnoreReturnValue
   public CcCompilationHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Collection<Artifact> sources) {
+    for (Artifact source : sources) {
+      addModuleInterfaceSource(source, label);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Iterable<Pair<Artifact, Label>> sources) {
+    for (Pair<Artifact, Label> source : sources) {
+      addModuleInterfaceSource(source.first, source.second);
+    }
+    return this;
+  }
+
+  private void addModuleInterfaceSource(Artifact source, Label label) {
+    Preconditions.checkNotNull(featureConfiguration);
+    moduleInterfaceSources.put(source, CppSource.create(source, label, CppSource.Type.SOURCE));
   }
 
   /** Add the corresponding files as non-header, non-source input files. */
@@ -1271,14 +1293,6 @@ public final class CcCompilationHelper {
       ImmutableMap<String, String> additionalBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     Artifact sourceFile = builder.getSourceFile();
-    String dotdFileExecPath = null;
-    if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getExecPathString();
-    }
-    String diagnosticsFileExecPath = null;
-    if (builder.getDiagnosticsFile() != null) {
-      diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
-    }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
@@ -1352,28 +1366,20 @@ public final class CcCompilationHelper {
 
     CompileBuildVariables.setupSpecificVariables(
         buildVariables,
-        toPathString(sourceFile),
-        toPathString(builder.getOutputFile()),
+        sourceFile,
+        builder.getOutputFile(),
         enableCoverage,
-        toPathString(gcnoFile),
-        toPathString(dwoFile),
+        gcnoFile,
+        dwoFile,
         isUsingFission,
-        toPathString(ltoIndexingFile),
-        /* thinLtoIndex= */ null,
-        /* thinLtoInputBitcodeFile= */ null,
-        /* thinLtoOutputObjectFile= */ null,
+        ltoIndexingFile,
         getCopts(builder.getSourceFile(), sourceLabel),
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        builder.getDotdFile(),
+        builder.getDiagnosticsFile(),
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);
     return buildVariables.build();
-  }
-
-  @Nullable
-  private static String toPathString(Artifact a) {
-    return a == null ? null : a.getExecPathString();
   }
 
   /**
@@ -1621,7 +1627,7 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
+          enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1636,7 +1642,7 @@ public final class CcCompilationHelper {
               /* usePic= */ false,
               /* needsFdoBuildVariables= */ ccRelativeName != null,
               cppModuleMap,
-              isCodeCoverageEnabled,
+              enableCoverage,
               gcnoFile,
               generateDwo,
               noPicDwoFile,

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Info;
@@ -44,12 +43,7 @@ public class AndroidStarlarkCommon
 
   @Override
   public AndroidSplitTransitionApi getAndroidSplitTransition() {
-    return AndroidSplitTransition.INSTANCE;
-  }
-
-  @Override
-  public StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition() {
-    return new AndroidPlatformsTransition.AndroidPlatformsTransitionFactory();
+    return AndroidSplitTransition.FACTORY;
   }
 
   /**

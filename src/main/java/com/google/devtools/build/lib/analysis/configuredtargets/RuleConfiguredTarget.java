@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -55,7 +54,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
@@ -135,17 +134,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClassObject().getRuleClassId(),
         actions);
-
-    // If this rule is the run_under target, then check that we have an executable; note that
-    // run_under is only set in the target configuration, and the target must also be analyzed for
-    // the target configuration.
-    RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null && getLabel().equals(runUnder.getLabel())) {
-      if (getProvider(FilesToRunProvider.class).getExecutable() == null) {
-        ruleContext.ruleError("run_under target " + runUnder.getLabel() + " is not executable");
-      }
-    }
-
     // Make sure that all declared output files are also created as artifacts. The
     // CachingAnalysisEnvironment makes sure that they all have generating actions.
     if (!ruleContext.hasErrors()) {
@@ -254,7 +242,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     // Show the names of the provider keys that this target propagates.
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.

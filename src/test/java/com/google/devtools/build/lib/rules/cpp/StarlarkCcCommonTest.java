@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -587,7 +588,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
-                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY));
+                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY, PathMapper.NOOP));
   }
 
   @Test
@@ -6298,6 +6299,30 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testEmitInterfaceLibrary() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    setupTestTransitiveLinkInternal(
+        scratch,
+        /* internalApi= */ true,
+        "output_type = 'dynamic_library'",
+        "emit_interface_shared_library = True");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    assertThat(library).isNotNull();
+    assertThat(library.getDynamicLibrary()).isNotNull();
+    assertThat(library.getInterfaceLibrary()).isNotNull();
+  }
+
+  @Test
   public void testTransitiveLinkForExecutable() throws Exception {
     setupTestTransitiveLink(scratch, "output_type = 'executable'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -6811,12 +6836,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
       throws Exception {
-    createCcBinRule(scratch, /* internalApi= */ false, additionalLines);
+    setupTestTransitiveLinkInternal(scratch, /* internalApi= */ false, additionalLines);
+  }
+
+  private static void setupTestTransitiveLinkInternal(
+      Scratch scratch, boolean internalApi, String... additionalLines) throws Exception {
+    createCcBinRule(scratch, internalApi, additionalLines);
+    String bzlPath;
+    if (internalApi) {
+      bzlPath = "bazel_internal/test_rules/cc";
+    } else {
+      bzlPath = "tools/build_defs";
+    }
     scratch.file(
         "foo/BUILD",
+        "load(\"//" + bzlPath + ":extension.bzl\", \"cc_bin\")",
         """
-        load("//tools/build_defs:extension.bzl", "cc_bin")
-
         cc_library(
             name = "dep1",
             srcs = ["dep1.cc"],
@@ -7383,6 +7418,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "build_test_dwp()",
             "grte_top()",
             "experimental_cc_implementation_deps()",
+            "experimental_cpp_modules()",
             "share_native_deps()",
             "experimental_platform_cc_test()");
     scratch.file(
@@ -7600,7 +7636,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             String.format(callFormatString, "additional_linkstamp_defines=[]"),
             String.format(callFormatString, "whole_archive=False"),
             String.format(callFormatString, "native_deps=False"),
-            String.format(callFormatString, "only_for_dynamic_libs=False"));
+            String.format(callFormatString, "only_for_dynamic_libs=False"),
+            String.format(callFormatString, "emit_interface_shared_library=True"));
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
@@ -7936,9 +7973,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
 
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_sequence_variable");
-    action.getCompileCommandLine().getVariables().getStringVariable("string_variable");
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7949,9 +7998,18 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     SpawnAction action =
         (SpawnAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
 
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
-    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7964,9 +8022,18 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (SpawnAction)
             getGeneratingAction((Artifact) getMyInfoFromTarget(target).getValue("executable"));
 
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
-    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -8165,9 +8232,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e)
-        .hasMessageThat()
-        .contains("file '//foo:custom_rule.bzl' cannot use private @_builtins API");
+    assertThat(e).hasMessageThat().contains("file '//foo:custom_rule.bzl' cannot use private API");
   }
 
   @Test

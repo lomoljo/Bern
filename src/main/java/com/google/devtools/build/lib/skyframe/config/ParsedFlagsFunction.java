@@ -67,8 +67,11 @@ public class ParsedFlagsFunction implements SkyFunction {
     // values. It doesn't actually parse anything with the native parser.
     OptionsParser fakeNativeParser = OptionsParser.builder().build();
     StarlarkOptionsParser starlarkFlagParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new SkyframeTargetLoader(env, key.packageContext()), fakeNativeParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
+            .nativeOptionsParser(fakeNativeParser)
+            .includeDefaultValues(key.includeDefaultValues())
+            .build();
     try {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
         return null;

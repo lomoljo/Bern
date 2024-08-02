@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Action;
@@ -28,21 +29,22 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionTagClassInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderNameGroup;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RepositoryRuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
 import java.util.NoSuchElementException;
@@ -396,7 +398,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
-    Path originRepoPath = moduleRoot.getRelative("origin_repo~v0.1");
+    Path originRepoPath = moduleRoot.getRelative("origin_repo+0.1");
     scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //
@@ -451,12 +453,12 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     invalidatePackages();
 
     // verify that ModuleInfo.name for a .bzl file in another bzlmod module is in display form, i.e.
-    // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
+    // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo+0.1//:origin.bzl"
     ModuleInfo originModuleInfo = protoFromConfiguredTarget("//:extract_origin");
     assertThat(originModuleInfo.getFile()).isEqualTo("@origin_repo//:origin.bzl");
 
     // verify that OriginKey.name for entities defined in a .bzl file in another bzlmod module is in
-    // display form, i.e. "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
+    // display form, i.e. "@origin_repo//:origin.bzl" as opposed to "@@origin_repo+0.1//:origin.bzl"
     ModuleInfo renamedModuleInfo = protoFromConfiguredTarget("//:extract_renamed");
     assertThat(renamedModuleInfo.getFile()).isEqualTo("//:renamer.bzl");
     assertThat(renamedModuleInfo.getFuncInfo(0).getOriginKey().getFile())
@@ -524,14 +526,22 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("exported_nested")
                 .setDocString("My nested function")
-                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("x")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .setOriginKey(
                     // OriginKey.name for nested functions is explicitly unset
                     OriginKey.newBuilder().setFile("//:origin.bzl"))
                 .build(),
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("exported_lambda")
-                .addParameter(FunctionParamInfo.newBuilder().setName("y").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("y")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .setOriginKey(
                     // OriginKey.name for lambdas is explicitly unset
                     OriginKey.newBuilder().setFile("//:origin.bzl"))
@@ -1189,7 +1199,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
-    Path depModRepoPath = moduleRoot.getRelative("dep_mod~v0.1");
+    Path depModRepoPath = moduleRoot.getRelative("dep_mod+0.1");
     scratch.file(depModRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         depModRepoPath.getRelative("foo.bzl").getPathString(),
@@ -1212,7 +1222,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         """);
     invalidatePackages();
 
-    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~//:extract");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod+//:extract");
     assertThat(moduleInfo.getFile()).isEqualTo("@dep_mod//:foo.bzl");
     assertThat(moduleInfo.getFuncInfo(0).getParameter(0).getDefaultValue())
         .isEqualTo("Label(\"@dep_mod//target:target\")");

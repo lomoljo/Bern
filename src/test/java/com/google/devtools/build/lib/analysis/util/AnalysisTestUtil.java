@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -272,7 +272,7 @@ public final class AnalysisTestUtil {
     @Override
     public void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {}
 
     @Override
@@ -286,17 +286,8 @@ public final class AnalysisTestUtil {
     }
   }
 
-  /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
+  /** A {@link WorkspaceStatusAction.Context} that does not support any operations. */
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
-    @Override
-    public ImmutableMap<String, Key> getStableKeys() {
-      return ImmutableMap.of();
-    }
-
-    @Override
-    public ImmutableMap<String, Key> getVolatileKeys() {
-      return ImmutableMap.of();
-    }
 
     @Override
     public Options getOptions() {
@@ -411,7 +402,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() {
       return null;
     }
 

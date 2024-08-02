@@ -22,7 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -36,9 +40,11 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
-public class ModuleThreadContext {
+public class ModuleThreadContext extends StarlarkThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
+  private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
+
   private final boolean ignoreDevDeps;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
@@ -50,15 +56,11 @@ public class ModuleThreadContext {
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
-    ModuleThreadContext context = thread.getThreadLocal(ModuleThreadContext.class);
-    if (context == null) {
-      throw Starlark.errorf("%s can only be called from MODULE.bazel and files it includes", what);
+    StarlarkThreadContext context = thread.getThreadLocal(StarlarkThreadContext.class);
+    if (context instanceof ModuleThreadContext c) {
+      return c;
     }
-    return context;
-  }
-
-  public void storeInThread(StarlarkThread thread) {
-    thread.setThreadLocal(ModuleThreadContext.class, this);
+    throw Starlark.errorf("%s can only be called from MODULE.bazel and files it includes", what);
   }
 
   public ModuleThreadContext(
@@ -66,6 +68,7 @@ public class ModuleThreadContext {
       ModuleKey key,
       boolean ignoreDevDeps,
       @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
+    super(/* mainRepoMappingSupplier= */ null);
     module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
     this.builtinModules = builtinModules;
@@ -154,11 +157,7 @@ public class ModuleThreadContext {
           && !this.isolate;
     }
 
-    void addImport(
-        String localRepoName,
-        String exportedName,
-        String byWhat,
-        Location location)
+    void addImport(String localRepoName, String exportedName, String byWhat, Location location)
         throws EvalException {
       RepositoryName.validateUserProvidedRepoName(localRepoName);
       RepositoryName.validateUserProvidedRepoName(exportedName);
@@ -216,7 +215,14 @@ public class ModuleThreadContext {
       // compiled before evaluation started.
       throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
     }
+    PathFragment includer = currentModuleFilePath;
+    currentModuleFilePath = Label.parseCanonicalUnchecked(includeLabel).toPathFragment();
     compiledModuleFile.runOnThread(thread);
+    currentModuleFilePath = includer;
+  }
+
+  public PathFragment getCurrentModuleFilePath() {
+    return currentModuleFilePath;
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
@@ -249,6 +255,10 @@ public class ModuleThreadContext {
     // Build module extension usages and the rest of the module.
     var extensionUsages = ImmutableList.<ModuleExtensionUsage>builder();
     for (var extensionUsageBuilder : extensionUsageBuilders) {
+      if (extensionUsageBuilder.proxyBuilders.isEmpty()) {
+        // This can happen for the special extension used for "use_repo_rule" calls.
+        continue;
+      }
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
     return module

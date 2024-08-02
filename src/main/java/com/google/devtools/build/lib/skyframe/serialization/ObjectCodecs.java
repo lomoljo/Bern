@@ -90,6 +90,15 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
+  public ObjectCodecs withCodecOverridesForTesting(ObjectCodec<?>... codecs) {
+    ObjectCodecRegistry.Builder registryBuilder = getCodecRegistry().getBuilder();
+    for (ObjectCodec<?> codec : codecs) {
+      registryBuilder.add(codec);
+    }
+    return new ObjectCodecs(registryBuilder.build(), getDependencies());
+  }
+
+  @VisibleForTesting // private
   public ImmutableDeserializationContext getDeserializationContextForTesting() {
     return deserializationContext;
   }
@@ -266,7 +275,8 @@ public class ObjectCodecs {
   // between these two, however, so introducing an extra layer of indirection to store a (codec
   // registry, dependencies) tuple doesn't appear to be worth it.
 
-  private ObjectCodecRegistry getCodecRegistry() {
+  @VisibleForTesting // private
+  public ObjectCodecRegistry getCodecRegistry() {
     return serializationContext.getCodecRegistry();
   }
 

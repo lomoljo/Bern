@@ -348,6 +348,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         workspace.initCommand(
             commandAnnotation,
             options,
+            invocationPolicy,
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,
@@ -373,7 +374,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     if (commonOptions.enableTracer == TriState.YES) {
       tracerEnabled = true;
     } else if (commonOptions.enableTracer == TriState.AUTO) {
-      boolean commandSupportsProfile = commandName.equals("query") || env.commandActuallyBuilds();
+      boolean commandSupportsProfile =
+          commandName.equals("query") || commandAnnotation.buildPhase().analyzes();
       tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
     }
 
@@ -571,12 +573,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      // It is not sufficient to check commandAnnotation.builds(), because
-      // {@link CleanCommand} is annotated with {@code builds = true} to have
-      // access to relevant build options but don't actually do building.  Same
-      // for {@link InfoCommand}, which is annotated with {@code builds = true}
-      // but only conditionally does this step based on some complicated logic.
-      if (env.commandActuallyBuilds()) {
+      if (env.getCommand().buildPhase().analyzes()) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
@@ -703,7 +700,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       needToCallAfterCommand = false;
-      var newResult = runtime.afterCommand(env, result);
+      var newResult = runtime.afterCommand(/* forceKeepStateForTesting= */ false, env, result);
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
@@ -724,7 +721,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       return result;
     } finally {
       if (needToCallAfterCommand) {
-        BlazeCommandResult newResult = runtime.afterCommand(env, result);
+        BlazeCommandResult newResult = runtime.afterCommand(false, env, result);
         if (!newResult.equals(result)) {
           logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
         }

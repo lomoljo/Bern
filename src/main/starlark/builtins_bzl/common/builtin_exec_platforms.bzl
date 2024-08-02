@@ -111,7 +111,6 @@ def _exec_transition_impl(fragments):
 bazel_fragments["AndroidConfiguration.Options"] = fragment(
     propagate = [
         "//command_line_option:android_sdk",
-        "//command_line_option:incompatible_android_platforms_transition_updated_affected",
         "//command_line_option:desugar_for_android",
         "//command_line_option:desugar_java8_libs",
         "//command_line_option:experimental_check_desugar_deps",
@@ -232,6 +231,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_debug_selects_always_succeed",
         "//command_line_option:incompatible_check_testonly_for_output_files",
         "//command_line_option:incompatible_auto_exec_groups",
+        "//command_line_option:incompatible_bazel_test_exec_run_under",
         "//command_line_option:experimental_writable_outputs",
         "//command_line_option:build_runfile_manifests",
         "//command_line_option:build_runfile_links",
@@ -278,6 +278,7 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:target libcTop label",
         "//command_line_option:experimental_link_static_libraries_once",
         "//command_line_option:experimental_cc_implementation_deps",
+        "//command_line_option:experimental_cpp_modules",
         "//command_line_option:start_end_lib",
         "//command_line_option:experimental_inmemory_dotd_files",
         "//command_line_option:incompatible_disable_legacy_cc_provider",
@@ -410,7 +411,6 @@ bazel_fragments["ProtoConfiguration$Options"] = fragment(
         "//command_line_option:proto_compiler",
         "//command_line_option:protocopt",
         "//command_line_option:experimental_proto_descriptor_sets_include_source_info",
-        "//command_line_option:experimental_proto_extra_actions",
         "//command_line_option:proto_toolchain_for_java",
         "//command_line_option:proto_toolchain_for_j2objc",
         "//command_line_option:proto_toolchain_for_javalite",
@@ -462,11 +462,17 @@ bazel_fragments["ShellConfiguration$Options"] = fragment(
     ],
 )
 
+bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
+    propagate = [
+        "//command_line_option:experimental_skip_ttvs_for_genquery",
+    ],
+)
+
 # TestConfiguration$TestOptions: handled in native code. See b/295936652.
 
 # Bazel's exec transition.
 _transition_data = exec_transition(bazel_fragments)
-bazel_exec_transition = _builtins.toplevel.transition(
+bazel_exec_transition = _builtins.toplevel.exec_transition(
     implementation = _transition_data.implementation,
     inputs = _transition_data.inputs,
     outputs = _transition_data.outputs,

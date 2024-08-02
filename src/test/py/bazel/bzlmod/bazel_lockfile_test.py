@@ -18,6 +18,7 @@ import json
 import os
 import pathlib
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -63,6 +64,32 @@ class BazelLockfileTest(test_base.TestBase):
   def tearDown(self):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
+
+  def testInvalidLockfile(self):
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '//:all'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      lockfile['registryFileHashes'] = 'I am a string'
+
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      f.write(json.dumps(lockfile))
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//:all'], allow_failure=True
+    )
+    stderr = '\n'.join(stderr)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertRegex(
+        stderr,
+        (
+            'ERROR: Error computing the main repository mapping: Failed to read'
+            ' and parse the MODULE\\.bazel\\.lock file with error:'
+            ' java\\.lang\\.IllegalStateException: Expected BEGIN_OBJECT but'
+            ' was STRING .*\\. Try deleting it and rerun the build.'
+        ),
+    )
 
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
@@ -145,6 +172,41 @@ class BazelLockfileTest(test_base.TestBase):
     # Even adding a new dependency should not fail due to the registry change
     self.RunBazel(['build', '--nobuild', '//:all'])
 
+  def testChangeModuleInRegistryWithLockfileInRefreshMode(self):
+    # Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    # Create a project with deps on 'sss'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running with the lockfile, should not recognize the registry changes
+    # hence find no errors
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:all'])
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+        ],
+    )
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Even adding a new dependency should not fail due to the registry change
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:all'])
+
   def testAddModuleToRegistryWithLockfile(self):
     # Create a project with deps on the BCR's 'platforms' module
     self.ScratchFile(
@@ -179,6 +241,46 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['shutdown'])
     # Even adding a new dependency should not fail due to the registry change
     self.RunBazel(['build', '--nobuild', '//:all'])
+
+  def testAddModuleToRegistryWithLockfileInRefreshMode(self):
+    # Create a project with deps on the BCR's 'platforms' module
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Add a broken 'platforms' module to the first registry
+    module_dir = self.main_registry.root.joinpath(
+        'modules', 'platforms', '0.0.9'
+    )
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running with the lockfile in refresh mode should recognize the addition
+    # to the first registry
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--lockfile_mode=refresh',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: in module '
+            'dependency chain <root> -> platforms@0.0.9: error parsing '
+            'MODULE.bazel file for platforms@0.0.9'
+        ),
+        stderr,
+    )
 
   def testChangeFlagWithLockfile(self):
     # Create a project with an outdated direct dep on aaa
@@ -218,18 +320,18 @@ class BazelLockfileTest(test_base.TestBase):
         [
             'build',
             '--nobuild',
-            '--check_direct_dependencies=warning',
             '//:all',
         ],
     )
 
-    # Run with updated module and a different flag
-    self.ScratchFile('MODULE.bazel', ['module(name="lala")'])
+    # Run with updated module
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name="does_not_exist",version="0")']
+    )
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
             '--nobuild',
-            '--check_direct_dependencies=error',
             '--lockfile_mode=error',
             '//:all',
         ],
@@ -239,54 +341,12 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn(
         (
             'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: the root'
-            ' MODULE.bazel has been modified, the value of'
-            ' --check_direct_dependencies flag has been modified. Please run'
+            ' Missing checksum for registry file {}'.format(
+                self.main_registry.getURL()
+            )
+            + '/modules/does_not_exist/0/MODULE.bazel not permitted with'
+            ' --lockfile_mode=error. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
-        ),
-        stderr,
-    )
-
-  def testLocalOverrideWithErrorMode(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'module(name="lala")',
-            'bazel_dep(name="bar")',
-            'local_path_override(module_name="bar",path="bar")',
-        ],
-    )
-    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.ScratchFile('bar/MODULE.bazel', ['module(name="bar")'])
-    self.ScratchFile('bar/BUILD', ['filegroup(name = "hello from bar")'])
-    self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:all',
-        ],
-    )
-
-    # Run with updated module and a different flag
-    self.ScratchFile(
-        'bar/MODULE.bazel',
-        [
-            'module(name="bar")',
-            'bazel_dep(name="hmmm")',
-        ],
-    )
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
-        allow_failure=True,
-    )
-    self.AssertExitCode(exit_code, 48, stderr)
-    self.assertIn(
-        (
-            'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: The'
-            ' MODULE.bazel file has changed for the overriden module: bar.'
-            ' Please run `bazel mod deps --lockfile_mode=update` to update your'
-            ' lockfile.'
         ),
         stderr,
     )
@@ -379,7 +439,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext_1',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext_1',
           lockfile['moduleExtensions'],
       )
       self.assertIn(
@@ -425,7 +485,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext',
           lockfile['moduleExtensions'],
       )
       self.assertNotIn(
@@ -449,7 +509,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertNotIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext',
           lockfile['moduleExtensions'],
       )
       self.assertIn(
@@ -493,7 +553,6 @@ class BazelLockfileTest(test_base.TestBase):
 
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertGreater(len(lockfile['moduleDepGraph']), 0)
       ext_keys = list(lockfile['moduleExtensions'].keys())
       self.assertIn('//:extension.bzl%extA', ext_keys)
       self.assertIn('//:extension.bzl%extB', ext_keys)
@@ -863,10 +922,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: the version of'
-            ' the lockfile is not compatible with the current Bazel. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            'ERROR: Error computing the main repository mapping: The version'
+            ' of MODULE.bazel.lock is not supported by this version of Bazel.'
+            ' Please run `bazel mod deps --lockfile_mode=update` to update your'
+            ' lockfile.'
         ),
         stderr,
     )
@@ -1335,9 +1394,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_1_impl(ctx):',
             '    print("Ext 1 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 1 saw %s tags" % num_tags)',
             '',
             'ext_1 = module_extension(',
@@ -1347,9 +1407,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_2_impl(ctx):',
             '    print("Ext 2 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 2 saw %s tags" % num_tags)',
             '',
             'ext_2 = module_extension(',
@@ -1359,9 +1420,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_3_impl(ctx):',
             '    print("Ext 3 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 3 saw %s tags" % num_tags)',
             '',
             'ext_3 = module_extension(',
@@ -1536,19 +1598,9 @@ class BazelLockfileTest(test_base.TestBase):
           ['build', '--registry=file:///%workspace%/registry', '//:lala']
       )
 
-      with open('MODULE.bazel.lock', 'r') as json_file:
-        lockfile = json.load(json_file)
-      ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
-      remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
-      ext_usage_location = ss_dep['extensionUsages'][0]['proxies'][0][
-          'location'
-      ]['file']
+      with open('MODULE.bazel.lock', 'r') as f:
+        self.assertNotIn(self.my_registry.getURL(), f.read())
 
-      self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
-      self.assertIn('%workspace%', ext_usage_location)
-      for key in remote_patches.keys():
-        self.assertNotIn(self.my_registry.getURL(), key)
-        self.assertIn('%workspace%', key)
     finally:
       self.my_registry.stop()
 
@@ -1703,7 +1755,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1727,7 +1779,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1746,7 +1798,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_BzlInit(self):
     # Regression test for #20721; same test as above, except that the call to
@@ -1786,7 +1838,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1810,7 +1862,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1829,7 +1881,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_loadsAndRepoRelativeLabels(self):
     # Regression test for #20721; same test as above, except that the call to
@@ -1884,7 +1936,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:BUILD', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:BUILD', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1905,7 +1957,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@bar~//:BUILD', '\n'.join(stderr))
+    self.assertIn('STR=@@bar+//:BUILD', '\n'.join(stderr))
 
   def testExtensionRepoMappingChange_sourceRepoNoLongerExistent(self):
     # Regression test for #20721; verify that an old recorded repo mapping entry
@@ -1942,7 +1994,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1960,7 +2012,7 @@ class BazelLockfileTest(test_base.TestBase):
       extension = lockfile['moduleExtensions']['//:ext.bzl%ext']['general']
       self.assertIn('recordedRepoMappingEntries', extension)
       extension['recordedRepoMappingEntries'].append(
-          ['_unknown_source_repo', 'other_name', 'bar~']
+          ['_unknown_source_repo', 'other_name', 'bar+']
       )
 
     with open(self.Path('MODULE.bazel.lock'), 'w') as f:
@@ -1970,7 +2022,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@foo~//:lib_foo', stderr)
+    self.assertIn('STR=@@foo+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_mainRepoEvalCycleWithWorkspace(self):
     # Regression test for #20942
@@ -2008,7 +2060,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE.bzlmod', ['load("@repo//:defs.bzl","STR")'])
 
     _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -2424,6 +2476,126 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('I am running the extension: 4.5.6', stderr)
+
+  def testModuleExtensionRerunsOnGetenvChanges(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "old_name", version = "1.2.3")',
+            'lockfile_ext = use_extension("//:extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            (
+                '    print("UNDECLARED_KEY=%s" %'
+                ' ctx.os.environ.get("UNDECLARED_KEY"))'
+            ),
+            (
+                '    print("PREDECLARED_KEY=%s" %'
+                ' ctx.os.environ.get("PREDECLARED_KEY"))'
+            ),
+            '    print("LAZYEVAL_KEY=%s" % ctx.getenv("LAZYEVAL_KEY"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    environ = ["PREDECLARED_KEY"],',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'UNDECLARED_KEY': 'val1'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('UNDECLARED_KEY=val1', stderr)
+
+    # No reevaluation if undeclared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'UNDECLARED_KEY': 'val2'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('UNDECLARED_KEY', stderr)
+
+    # Reevaluation if predeclared env var is first set
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val1'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=val1', stderr)
+
+    # No reevaluation if predeclared env var does not change
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val1'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('PREDECLARED_KEY', stderr)
+
+    # Reevaluation if predeclared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val2'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=val2', stderr)
+
+    # Reevaluation if predeclared env var becomes unset
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=None', stderr)
+
+    # Reevaluation if lazily declared env var is first set
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val1'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val1', stderr)
+
+    # No reevaluation if lazily declared env var does not change
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val1'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('LAZYEVAL_KEY', stderr)
+
+    # Reevaluation if lazily declared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val2'}
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val2', stderr)
+
+    # Reevaluation if lazily declared env var changes due to --repo_env.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--repo_env=LAZYEVAL_KEY=val3'],
+        env_add={'LAZYEVAL_KEY': 'val2'},
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val3', stderr)
+
+    # Reevaluation if lazily declared env var becomes unset
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=None', stderr)
 
 
 if __name__ == '__main__':

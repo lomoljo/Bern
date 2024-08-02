@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -46,6 +45,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.SymbolGenerator;
 
+// LINT.IfChange
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
  * generate source files and emulate cc_library on top of that should use this class instead of the
@@ -56,30 +56,6 @@ import net.starlark.java.eval.SymbolGenerator;
  * these require explicit calls to the corresponding setter methods.
  */
 public final class CcLinkingHelper {
-
-  /** Contains the providers as well as the linking outputs. */
-  // TODO(plf): Only used by Starlark API. Remove after migrating.
-  @Deprecated
-  public static final class LinkingInfo implements LinkingInfoApi {
-    private final CcLinkingContext ccLinkingContext;
-    private final CcLinkingOutputs linkingOutputs;
-
-    public LinkingInfo(CcLinkingContext ccLinkingContext, CcLinkingOutputs linkingOutputs) {
-      this.ccLinkingContext = ccLinkingContext;
-      this.linkingOutputs = linkingOutputs;
-    }
-
-    @Override
-    public CcLinkingContext getCcLinkingContext() {
-      return ccLinkingContext;
-    }
-
-    @Override
-    public CcLinkingOutputs getCcLinkingOutputs() {
-      return linkingOutputs;
-    }
-  }
-
   private final CppSemantics semantics;
 
   private final NestedSetBuilder<Artifact> additionalLinkerInputsBuilder =
@@ -730,6 +706,7 @@ public final class CcLinkingHelper {
             || dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
 
     if (shouldLinkTransitively) {
+      // LINT.IfChange
       CcLinkingContext ccLinkingContext = CcLinkingContext.merge(ccLinkingContexts);
       ImmutableList<LibraryInput> libraries =
           convertLibraryToLinkListToLinkerInputList(
@@ -737,6 +714,7 @@ public final class CcLinkingHelper {
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary(),
               featureConfiguration);
+      // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
       ImmutableList<CcLinkingContext.Linkstamp> linkstamps =
           ccLinkingContext.getLinkstamps().toList();
       if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
@@ -910,6 +888,7 @@ public final class CcLinkingHelper {
         artifactFragment);
   }
 
+  // LINT.IfChange
   private static ImmutableList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
       NestedSet<LibraryToLink> librariesToLink,
       boolean staticMode,
@@ -974,6 +953,8 @@ public final class CcLinkingHelper {
     return libraryInputsBuilder.build();
   }
 
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
+
   @Nullable
   private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact)
       throws EvalException {
@@ -994,3 +975,4 @@ public final class CcLinkingHelper {
         /* prefixConsumer= */ false);
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cc_linking_helper.bzl)

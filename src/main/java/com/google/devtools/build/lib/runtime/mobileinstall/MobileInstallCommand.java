@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.mobileinstall;
 
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -66,15 +67,14 @@ import javax.annotation.Nullable;
 
 /** Implementation of the 'mobile-install' command. */
 @Command(
-  name = "mobile-install",
-  builds = true,
-  options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
-  inherits = {BuildCommand.class},
-  shortDescription = "Installs targets to mobile devices.",
-  completion = "label",
-  allowResidue = true,
-  help = "resource:mobile-install.txt"
-)
+    name = "mobile-install",
+    buildPhase = EXECUTES,
+    options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
+    inheritsOptionsFrom = {BuildCommand.class},
+    shortDescription = "Installs targets to mobile devices.",
+    completion = "label",
+    allowResidue = true,
+    help = "resource:mobile-install.txt")
 public class MobileInstallCommand implements BlazeCommand {
 
   /** An enumeration of all the modes that mobile-install supports. */

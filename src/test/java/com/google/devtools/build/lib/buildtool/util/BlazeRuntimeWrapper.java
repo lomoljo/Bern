@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
 import com.google.common.collect.ImmutableList;
@@ -99,6 +100,7 @@ public class BlazeRuntimeWrapper {
 
   private BuildRequest lastRequest;
   private BuildResult lastResult;
+  private BlazeCommandResult lastCommandResult;
   private BuildConfigurationValue configuration;
 
   private OptionsParser optionsParser;
@@ -183,9 +185,6 @@ public class BlazeRuntimeWrapper {
         BlazeCommandUtils.getOptions(
             command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
     initializeOptionsParser(commandAnnotation);
-    if (env != null) {
-      runtime.afterCommand(env, BlazeCommandResult.success());
-    }
 
     checkNotNull(
         optionsParser,
@@ -198,6 +197,7 @@ public class BlazeRuntimeWrapper {
             .initCommand(
                 commandAnnotation,
                 optionsParser,
+                InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
                 /* commandStartTime= */ 0L,
@@ -268,6 +268,9 @@ public class BlazeRuntimeWrapper {
     optionsParser = createOptionsParser(commandAnnotation);
     optionsParser.parse(optionsToParse);
 
+    // Allow the command to edit the options.
+    command.editOptions(optionsParser);
+
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(
@@ -313,32 +316,39 @@ public class BlazeRuntimeWrapper {
   void executeNonBuildCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        !env.commandActuallyBuilds(),
+        env.getCommand().buildPhase() == NONE,
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
+    BlazeCommandResult result = BlazeCommandResult.success();
+
     try {
       beforeCommand();
+
       lastRequest = null;
       lastResult = null;
 
-      BlazeCommandResult result;
-      Crash crash = null;
       try {
-        result = command.exec(env, optionsParser);
-      } catch (RuntimeException | Error e) {
-        crash = Crash.from(e);
-        throw e;
+        Crash crash = null;
+        try {
+          result = command.exec(env, optionsParser);
+        } catch (RuntimeException | Error e) {
+          crash = Crash.from(e);
+          result = BlazeCommandResult.detailedExitCode(crash.getDetailedExitCode());
+          throw e;
+        } finally {
+          commandComplete(crash);
+        }
+        checkState(
+            result.getDetailedExitCode().equals(DetailedExitCode.success()),
+            "%s command resulted in %s",
+            env.getCommandName(),
+            result);
       } finally {
-        commandComplete(crash);
+        afterCommand(result);
       }
-      checkState(
-          result.getDetailedExitCode().equals(DetailedExitCode.success()),
-          "%s command resulted in %s",
-          env.getCommandName(),
-          result);
     } finally {
-      afterCommand();
+      Profiler.instance().stop();
     }
   }
 
@@ -347,38 +357,43 @@ public class BlazeRuntimeWrapper {
       newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
     }
     checkState(
-        env.commandActuallyBuilds(),
+        env.getCommand().buildPhase().loads(),
         "%s is not a build command, did you mean to call executeNonBuildCommand()?",
         env.getCommandName());
 
     try {
       beforeCommand();
-      lastRequest = createRequest(env.getCommandName(), targets);
-      lastResult = new BuildResult(lastRequest.getStartTime());
 
-      Crash crash = null;
-      DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
-      BuildTool buildTool = new BuildTool(env);
       try {
-        try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
-          env.syncPackageLoading(lastRequest);
+        lastRequest = createRequest(env.getCommandName(), targets);
+        lastResult = new BuildResult(lastRequest.getStartTime());
+
+        Crash crash = null;
+        DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
+        BuildTool buildTool = new BuildTool(env);
+        try {
+          try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+            env.syncPackageLoading(lastRequest);
+          }
+          buildTool.buildTargets(lastRequest, lastResult, null);
+          detailedExitCode = DetailedExitCode.success();
+        } catch (RuntimeException | Error e) {
+          crash = Crash.from(e);
+          detailedExitCode = crash.getDetailedExitCode();
+          throw e;
+        } finally {
+          env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
+          configuration = lastResult.getBuildConfiguration();
+          finalizeBuildResult(lastResult);
+          buildTool.stopRequest(
+              lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
+          commandComplete(crash);
         }
-        buildTool.buildTargets(lastRequest, lastResult, null);
-        detailedExitCode = DetailedExitCode.success();
-      } catch (RuntimeException | Error e) {
-        crash = Crash.from(e);
-        detailedExitCode = crash.getDetailedExitCode();
-        throw e;
       } finally {
-        env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
-        configuration = lastResult.getBuildConfiguration();
-        finalizeBuildResult(lastResult);
-        buildTool.stopRequest(
-            lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
-        commandComplete(crash);
+        afterCommand(BlazeCommandResult.detailedExitCode(lastResult.getDetailedExitCode()));
       }
     } finally {
-      afterCommand();
+      Profiler.instance().stop();
     }
   }
 
@@ -403,11 +418,13 @@ public class BlazeRuntimeWrapper {
                 runtime.getBugReporter(),
                 WorkerProcessMetricsCollector.instance(),
                 env.getLocalResourceManager(),
+                env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
                 /* collectWorkerDataInProfiler= */ false,
                 /* collectLoadAverage= */ false,
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,
-                /* collectPressureStallIndicators= */ false));
+                /* collectPressureStallIndicators= */ false,
+                /* collectSkyframeCounts= */ false));
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -439,15 +456,14 @@ public class BlazeRuntimeWrapper {
 
   private void commandComplete(@Nullable Crash crash) throws Exception {
     Reporter reporter = env.getReporter();
-    getSkyframeExecutor().notifyCommandComplete(reporter);
     if (crash != null) {
       runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
     }
   }
 
-  private void afterCommand() throws Exception {
+  private void afterCommand(BlazeCommandResult result) {
     command = null;
-    Profiler.instance().stop();
+    lastCommandResult = runtime.afterCommand(/* forceKeepStateForTesting= */ true, env, result);
   }
 
   private static FailureDetail createGenericDetailedFailure() {
@@ -466,7 +482,7 @@ public class BlazeRuntimeWrapper {
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
             .setStartTimeMillis(runtime.getClock().currentTimeMillis());
-    if ("test".equals(commandName)) {
+    if (commandName.equals("test") || commandName.equals("coverage")) {
       builder.setRunTests(true);
     }
     return builder.build();
@@ -480,6 +496,11 @@ public class BlazeRuntimeWrapper {
   @Nullable // Null if no build has been run.
   public BuildResult getLastResult() {
     return lastResult;
+  }
+
+  @Nullable // Null if no build has been run.
+  public BlazeCommandResult getLastCommandResult() {
+    return lastCommandResult;
   }
 
   @Nullable // Null if no build has been run.

@@ -62,10 +62,20 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
     printer.append(")>");
+  }
+
+  @StarlarkMethod(
+      name = "is_requested",
+      parameters = {@Param(name = "feature")},
+      documented = false,
+      useStarlarkThread = true)
+  public boolean isRequested(String feature, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return featureConfiguration.getRequestedFeatures().contains(feature);
   }
 
   @StarlarkMethod(

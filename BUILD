@@ -58,10 +58,8 @@ filegroup(
 )
 
 filegroup(
-    name = "workspace-file",
+    name = "workspace-deps-bzl",
     srcs = [
-        ":WORKSPACE",
-        ":distdir.bzl",
         ":workspace_deps.bzl",
     ],
     visibility = [
@@ -206,9 +204,7 @@ pkg_tar(
 write_file(
     name = "gen_maven_repo_name",
     out = "MAVEN_CANONICAL_REPO_NAME",
-    # TODO: Use this instead after building with Bazel 7.1.0 or later.
-    #    content = [get_canonical_repo_name("@maven")],
-    content = ["rules_jvm_external~~maven~maven"],
+    content = [get_canonical_repo_name("@maven")],
 )
 
 # The @maven repository is created by maven_install from rules_jvm_external.
@@ -218,8 +214,10 @@ pkg_tar(
     srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
     package_dir = "derived/maven",
     remap_paths = {
-        "external/" + get_canonical_repo_name("@maven") + "/": "",
-        "../" + get_canonical_repo_name("@maven") + "/": "",
+        # We need the repo names according to "builder bazel" (instead of "bazel being built") here.
+        # Remove the `replace` parts after building with 7.3.0.
+        "external/" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
+        "../" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
     },
     strip_prefix = ".",
     visibility = ["//:__subpackages__"],

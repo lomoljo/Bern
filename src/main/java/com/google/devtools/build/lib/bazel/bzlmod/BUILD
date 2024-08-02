@@ -47,6 +47,20 @@ java_library(
 )
 
 java_library(
+    name = "vendor",
+    srcs = ["VendorManager.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "module_extension",
     srcs = [
         "ModuleExtension.java",
@@ -60,6 +74,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
@@ -79,6 +94,9 @@ java_library(
     ],
     deps = [
         ":common",
+        ":vendor",
+        ":yanked_versions_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -89,6 +107,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:gson",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -101,13 +120,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -119,9 +138,7 @@ java_library(
         "BazelDepGraphValue.java",
         "BazelFetchAllValue.java",
         "BazelLockFileValue.java",
-        "BazelModuleResolutionEvent.java",
         "BazelModuleResolutionValue.java",
-        "BzlmodFlagsAndEnvVars.java",
         "CompiledModuleFile.java",
         "GitOverride.java",
         "InterimModule.java",
@@ -145,6 +162,7 @@ java_library(
         "SingleExtensionUsagesValue.java",
         "SingleExtensionValue.java",
         "SingleVersionOverride.java",
+        "VendorFileValue.java",
         "YankedVersionsValue.java",
     ],
     deps = [
@@ -189,7 +207,6 @@ java_library(
         "BazelFetchAllFunction.java",
         "BazelLockFileFunction.java",
         "BazelModuleResolutionFunction.java",
-        "BzlmodFlagsAndEnvVars.java",
         "DelegateTypeAdapterFactory.java",
         "Discovery.java",
         "GsonTypeAdapterUtil.java",
@@ -205,6 +222,7 @@ java_library(
         "SingleExtensionUsagesFunction.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
+        "VendorFileFunction.java",
         "YankedVersionsFunction.java",
         "YankedVersionsUtil.java",
     ],
@@ -300,12 +318,11 @@ java_library(
     deps = [
         ":resolution",
         ":root_module_file_fixup",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -318,20 +335,15 @@ java_library(
     ],
     deps = [
         ":common",
-        ":exception",
         ":resolution",
-        ":resolution_impl",
         ":root_module_file_fixup",
         ":tidy",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -383,6 +395,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -400,6 +413,20 @@ java_library(
     ],
     deps = [
         ":module_extension",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "yanked_versions_value",
+    srcs = ["YankedVersionsValue.java"],
+    deps = [
+        ":common",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

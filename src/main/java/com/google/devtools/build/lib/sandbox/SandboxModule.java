@@ -68,7 +68,10 @@ import javax.annotation.Nullable;
 public final class SandboxModule extends BlazeModule {
 
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
-      ImmutableSet.of(SandboxStash.SANDBOX_STASH_BASE, AsynchronousTreeDeleter.MOVED_TRASH_DIR);
+      ImmutableSet.of(
+          SandboxStash.SANDBOX_STASH_BASE,
+          SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
+          AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -226,14 +229,16 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
-    SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
+    try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
+      SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
+    }
 
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
         if (trashBase.exists()) {
           // Delete stale trash from a previous server instance.
           Path staleTrash = getStaleTrashDir(trashBase);
@@ -619,6 +624,8 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
     }
+
+    SandboxStash.shutdown();
   }
 
   @Override

@@ -325,15 +325,19 @@ public final class Profiler {
   /** Collects local cpu usage data (if enabled). */
   private LocalResourceCollector localResourceCollector;
 
-  private TimeSeries actionCountTimeSeries;
-  private TimeSeries actionCacheCountTimeSeries;
-  private TimeSeries localActionCountTimeSeries;
+  private final AtomicReference<TimeSeries> actionCountTimeSeriesRef;
+  private final AtomicReference<TimeSeries> actionCacheCountTimeSeriesRef;
+  private final AtomicReference<TimeSeries> localActionCountTimeSeriesRef;
+
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
   private boolean includeTargetLabel;
 
   private Profiler() {
+    actionCountTimeSeriesRef = new AtomicReference<>();
+    actionCacheCountTimeSeriesRef = new AtomicReference<>();
+    localActionCountTimeSeriesRef = new AtomicReference<>();
     initHistograms();
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.collectsSlowestInstances) {
@@ -449,11 +453,12 @@ public final class Profiler {
     this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
     this.clock = clock;
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
-    this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
-    this.actionCacheCountTimeSeries =
-        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
-    this.localActionCountTimeSeries =
-        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    this.actionCountTimeSeriesRef.set(
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+    this.actionCacheCountTimeSeriesRef.set(
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+    this.localActionCountTimeSeriesRef.set(
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
@@ -509,14 +514,16 @@ public final class Profiler {
     Duration endTime = Duration.ofNanos(clock.nanoTime());
     int len = (int) endTime.minus(actionCountStartTime).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
     Map<ProfilerTask, double[]> counterSeriesMap = new LinkedHashMap<>();
+    TimeSeries actionCountTimeSeries = actionCountTimeSeriesRef.get();
     if (actionCountTimeSeries != null) {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
-      actionCountTimeSeries = null;
+      actionCountTimeSeriesRef.set(null);
       counterSeriesMap.put(ProfilerTask.ACTION_COUNTS, actionCountValues);
     }
+    TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
-      actionCacheCountTimeSeries = null;
+      actionCacheCountTimeSeriesRef.set(null);
       counterSeriesMap.put(ProfilerTask.ACTION_CACHE_COUNTS, actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
@@ -524,9 +531,10 @@ public final class Profiler {
     }
 
     Map<ProfilerTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
+    TimeSeries localActionCountTimeSeries = localActionCountTimeSeriesRef.get();
     if (localActionCountTimeSeries != null) {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
-      localActionCountTimeSeries = null;
+      localActionCountTimeSeriesRef.set(null);
       localCounterSeriesMap.put(ProfilerTask.LOCAL_ACTION_COUNTS, localActionCountValues);
     }
     if (hasNonZeroValues(localCounterSeriesMap)) {
@@ -614,7 +622,7 @@ public final class Profiler {
    * @param description task description. May be stored until end of build.
    */
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
-    var threadId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     try {
       checkNotNull(description);
       checkState(!description.isEmpty(), "No description -> not helpful");
@@ -633,7 +641,7 @@ public final class Profiler {
         // #clear.
         JsonTraceFileWriter currentWriter = writerRef.get();
         if (wasTaskSlowEnoughToRecord(type, duration)) {
-          TaskData data = new TaskData(threadId, startTimeNanos, type, description);
+          TaskData data = new TaskData(getLaneId(lane), startTimeNanos, type, description);
           data.durationNanos = duration;
           if (currentWriter != null) {
             currentWriter.enqueue(data);
@@ -647,7 +655,7 @@ public final class Profiler {
         }
       }
     } finally {
-      releaseLane();
+      releaseLane(lane);
     }
   }
 
@@ -711,12 +719,12 @@ public final class Profiler {
 
   private SilentCloseable reallyProfile(ProfilerTask type, String description) {
     final long startTimeNanos = clock.nanoTime();
-    long laneId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     return () -> {
       try {
-        completeTask(laneId, startTimeNanos, type, description);
+        completeTask(getLaneId(lane), startTimeNanos, type, description);
       } finally {
-        releaseLane();
+        releaseLane(lane);
       }
     };
   }
@@ -789,11 +797,11 @@ public final class Profiler {
     checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       final long startTimeNanos = clock.nanoTime();
-      var laneId = borrowLaneAndGetLaneId();
+      var lane = borrowLane();
       return () -> {
         try {
           completeAction(
-              laneId,
+              getLaneId(lane),
               startTimeNanos,
               type,
               description,
@@ -801,7 +809,7 @@ public final class Profiler {
               includePrimaryOutput ? primaryOutput : null,
               includeTargetLabel ? targetLabel : null);
         } finally {
-          releaseLane();
+          releaseLane(lane);
         }
       };
     } else {
@@ -821,11 +829,11 @@ public final class Profiler {
   }
 
   public void completeTask(long startTimeNanos, ProfilerTask type, String description) {
-    var laneId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     try {
-      completeTask(laneId, startTimeNanos, type, description);
+      completeTask(getLaneId(lane), startTimeNanos, type, description);
     } finally {
-      releaseLane();
+      releaseLane(lane);
     }
   }
 
@@ -874,24 +882,21 @@ public final class Profiler {
       writer.enqueue(data);
     }
     long endTimeNanos = data.startTimeNanos + data.durationNanos;
+    TimeSeries actionCountTimeSeries = actionCountTimeSeriesRef.get();
+    TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
+    TimeSeries localActionCountTimeSeries = localActionCountTimeSeriesRef.get();
     if (actionCountTimeSeries != null && countAction(data.type)) {
-      synchronized (this) {
-        actionCountTimeSeries.addRange(
-            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
-      }
+      actionCountTimeSeries.addRange(
+          Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
     }
     if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
-      synchronized (this) {
-        actionCacheCountTimeSeries.addRange(
-            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
-      }
+      actionCacheCountTimeSeries.addRange(
+          Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
     }
 
     if (localActionCountTimeSeries != null && data.type == ProfilerTask.LOCAL_ACTION_COUNTS) {
-      synchronized (this) {
-        localActionCountTimeSeries.addRange(
-            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
-      }
+      localActionCountTimeSeries.addRange(
+          Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
     }
     SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
     if (aggregator != null) {
@@ -920,9 +925,9 @@ public final class Profiler {
       return laneGenerator.acquire();
     }
 
-    private void release(String prefix, Lane lane) {
+    private void release(Lane lane) {
       checkState(isActive());
-      var laneGenerator = checkNotNull(laneGenerators.get(prefix));
+      var laneGenerator = lane.laneGenerator;
       laneGenerator.release(lane);
     }
 
@@ -932,10 +937,12 @@ public final class Profiler {
   }
 
   private static class Lane implements Comparable<Lane> {
+    private final LaneGenerator laneGenerator;
     private final long id;
     private int refCount;
 
-    private Lane(long id) {
+    private Lane(LaneGenerator laneGenerator, long id) {
+      this.laneGenerator = laneGenerator;
       this.id = id;
     }
 
@@ -960,15 +967,15 @@ public final class Profiler {
       var lane = availableLanes.poll();
       // It might create more virtual lanes, but it's fine for our purpose.
       if (lane == null) {
-        long newLaneId = nextLaneId.getAndIncrement();
+        lane = new Lane(this, nextLaneId.getAndIncrement());
+
         int newLaneIndex = count.getAndIncrement();
         String newLaneName = prefix + newLaneIndex + " (Virtual)";
-        var threadMetadata = new ThreadMetadata(newLaneName, newLaneId);
+        var threadMetadata = new ThreadMetadata(newLaneName, lane.id);
         var writer = Profiler.this.writerRef.get();
         if (writer != null) {
           writer.enqueue(threadMetadata);
         }
-        lane = new Lane(newLaneId);
       }
       return lane;
     }
@@ -989,31 +996,32 @@ public final class Profiler {
             return lane;
           });
 
-  private long borrowLaneAndGetLaneId() {
-    var currentThread = Thread.currentThread();
-    var threadId = currentThread.threadId();
-    if (!currentThread.isVirtual() || !isActive()) {
-      return threadId;
+  @Nullable
+  private Lane borrowLane() {
+    if (!Thread.currentThread().isVirtual() || !isActive()) {
+      return null;
     }
 
     var lane = borrowedLane.get();
     lane.refCount += 1;
+    return lane;
+  }
+
+  private long getLaneId(@Nullable Lane lane) {
+    if (lane == null) {
+      return Thread.currentThread().threadId();
+    }
     return lane.id;
   }
 
-  private void releaseLane() {
-    var currentThread = Thread.currentThread();
-    if (!currentThread.isVirtual() || !isActive()) {
+  private void releaseLane(@Nullable Lane lane) {
+    if (lane == null) {
       return;
     }
-
-    var lane = borrowedLane.get();
     lane.refCount -= 1;
-    checkState(lane.refCount >= 0);
     if (lane.refCount == 0) {
       borrowedLane.remove();
-      var prefix = virtualThreadPrefix.get();
-      multiLaneGenerator.release(prefix, lane);
+      multiLaneGenerator.release(lane);
     }
   }
 

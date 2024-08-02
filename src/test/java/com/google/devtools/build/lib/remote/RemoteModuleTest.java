@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -149,6 +150,7 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
+
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setProductName(productName)
@@ -172,6 +174,7 @@ public final class RemoteModuleTest {
     return workspace.initCommand(
         command,
         options,
+        InvocationPolicy.getDefaultInstance(),
         /* warnings= */ new ArrayList<>(),
         /* waitTimeInMs= */ 0,
         /* commandStartTime= */ 0,
@@ -246,7 +249,7 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       // Wait for the channel to be connected.
-      var downloader = (GrpcRemoteDownloader) remoteModule.getRemoteDownloaderSupplier().get();
+      var downloader = (GrpcRemoteDownloader) remoteModule.getRemoteDownloader();
       var unused = downloader.getChannel().withChannelBlocking(ch -> new Object());
 
       // Remote downloader uses Remote Asset API, and Bazel doesn't have any capability requirement

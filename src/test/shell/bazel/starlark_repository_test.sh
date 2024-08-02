@@ -2327,9 +2327,6 @@ genrule(
 )
 EOF
 
-  # Ensure that all Bzlmod-related downloads have happened before disabling
-  # downloads.
-  bazel mod deps || fail "Failed to cache Bazel modules"
   bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
   expect_log "Failed to download repository @.*: download is disabled"
@@ -2676,7 +2673,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~//:data"
+  expect_log "I see: @@foo+//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2689,7 +2686,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~//:data"
+  expect_log "I see: @@bar+//:data"
 }
 
 function test_repo_mapping_change_in_bzl_init() {
@@ -2723,7 +2720,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~//:data"
+  expect_log "I see: @@foo+//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2736,7 +2733,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~//:data"
+  expect_log "I see: @@bar+//:data"
 }
 
 function test_file_watching_inside_working_dir() {
@@ -2876,7 +2873,7 @@ EOF
 def _foo(rctx):
   rctx.file("BUILD", "filegroup(name='foo')")
   # this repo might not have been defined yet
-  rctx.watch("../_main~_repo_rules~bar/BUILD")
+  rctx.watch("../+_repo_rules+bar/BUILD")
   print("I see something!")
 foo=repository_rule(_foo)
 EOF
@@ -2884,7 +2881,7 @@ EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see something!"
 
-  # Defining @@_main~_repo_rules~bar should now cause @foo to refetch.
+  # Defining @@+_repo_rules+bar should now cause @foo to refetch.
   cat >> MODULE.bazel <<EOF
 bar = use_repo_rule("//:bar.bzl", "bar")
 bar(name = "bar")
@@ -3270,6 +3267,47 @@ EOF
   bazel build --keep_going //blarg @r >& $TEST_log && fail "bazel somehow succeeded"
   # the fact that the invocation didn't time out should suffice as success.
   true
+}
+
+function test_legacy_label_print() {
+    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+    cd "${WRKDIR}"
+    cat > WORKSPACE <<'EOF'
+load("//:my_repository_rule.bzl", "my_repository_rule")
+
+my_repository_rule(
+    name = "my_first_repo",
+)
+
+my_repository_rule(
+    name = "my_second_repo",
+)
+EOF
+    cat > my_repository_rule.bzl <<'EOF'
+def _my_repository_rule_impl(rctx):
+    print("main repo:", Label("@@//:foo"), str(Label("@@//:foo")))
+    print("my_first_repo:", Label("@my_first_repo//:foo"), str(Label("@my_first_repo//:foo")))
+    print("my_second_repo:", Label("@my_first_repo//:foo"), str(Label("@my_first_repo//:foo")))
+    rctx.file("WORKSPACE")
+    rctx.file("BUILD", "filegroup(name='foo',visibility=['//visibility:public'])")
+
+my_repository_rule = repository_rule(
+    implementation = _my_repository_rule_impl,
+)
+EOF
+    cat > BUILD <<'EOF'
+filegroup(
+    name = "foo",
+    srcs = [
+        "@my_first_repo//:foo",
+        "@my_second_repo//:foo",
+    ],
+)
+EOF
+    bazel build --noenable_bzlmod //:foo >& $TEST_log || fail "expected bazel to succeed"
+    expect_log "main repo: //:foo @//:foo"
+    expect_log "my_first_repo: @my_first_repo//:foo @my_first_repo//:foo"
+    expect_log "my_second_repo: @my_first_repo//:foo @my_first_repo//:foo"
 }
 
 run_suite "local repository tests"

@@ -20,8 +20,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
@@ -86,7 +88,7 @@ public class FakeRegistry implements Registry {
             "%s/modules/%s/%s/source.json"
                 .formatted(url, key.getName(), key.getVersion().toString()),
             Optional.of(
-                GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson()
+                GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON
                     .toJson(repoSpec)
                     .getBytes(UTF_8))));
     return repoSpec;
@@ -96,6 +98,12 @@ public class FakeRegistry implements Registry {
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler) {
     return Optional.ofNullable(yankedVersionMap.get(moduleName));
+  }
+
+  @Override
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    return Optional.empty();
   }
 
   @Override
@@ -126,7 +134,11 @@ public class FakeRegistry implements Registry {
 
     @Override
     public Registry createRegistry(
-        String url, ImmutableMap<String, Optional<Checksum>> fileHashes) {
+        String url,
+        LockfileMode lockfileMode,
+        ImmutableMap<String, Optional<Checksum>> fileHashes,
+        ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+        Optional<Path> vendorDir) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

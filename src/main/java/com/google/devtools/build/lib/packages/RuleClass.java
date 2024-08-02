@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -165,61 +167,13 @@ public class RuleClass implements RuleClassData {
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
-  /** Possible values for setting whether a rule uses toolchain resolution. */
-  public enum ToolchainResolutionMode {
-    /** The rule should use toolchain resolution. */
-    ENABLED,
-    /** The rule should not use toolchain resolution. */
-    DISABLED,
-    /**
-     * The rule instance uses toolchain resolution if it has a select() or has a
-     * target_compatible_with attribute.
-     *
-     * <p>This is for rules that don't intrinsically use toolchains but have select()s on {@link
-     * com.google.devtools.build.lib.rules.platform.ConstraintValue} or have a
-     * target_compatible_with attribute with {@link
-     * com.google.devtools.build.lib.rules.platform.ConstraintValue} targets, which are part of the
-     * build's platform. Such instances need to know what platform the build is targeting, which
-     * Bazel won't provide unless toolchain resolution is enabled.
-     *
-     * <p>This is set statically in rule definitions on an opt-in basis. Bazel doesn't automatically
-     * infer this for any target with a select().
-     *
-     * <p>Ultimately, we should remove this when <a
-     * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
-     * addressed, so platforms are unconditionally provided for all rules.
-     */
-    ENABLED_ONLY_FOR_COMMON_LOGIC,
-    /** The rule should inherit the value from its parent rules. */
-    INHERIT;
+  /** Interface for determining whether a rule needs toolchain resolution or not. */
+  @FunctionalInterface
+  public interface ToolchainResolutionMode extends Serializable {
+    boolean useToolchainResolution(Rule rule);
 
-    /** Determine the correct value to use based on the current setting and the parent's value. */
-    ToolchainResolutionMode apply(String name, ToolchainResolutionMode parent) {
-      if (this == INHERIT) {
-        return parent;
-      } else if (parent == INHERIT) {
-        return this;
-      } else if (this != parent) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Rule %s has useToolchainResolution set to %s, but the parent is trying to set it"
-                    + " to %s",
-                name, this, parent));
-      }
-      return this;
-    }
-
-    boolean isActive() {
-      switch (this) {
-        case ENABLED:
-          return true;
-        case DISABLED:
-        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may enable it.
-          return false;
-        default:
-      }
-      return true; // Default is that toolchain resolution is enabled.
-    }
+    ToolchainResolutionMode ENABLED = (unused) -> true;
+    ToolchainResolutionMode DISABLED = (unused) -> false;
   }
 
   /** A factory or builder class for rule implementations. */
@@ -327,7 +281,7 @@ public class RuleClass implements RuleClassData {
    *       we need to make sure its coverage remains complete.
    *   <li>Manual configuration trimming uses the normal dependency resolution process to work
    *       correctly and config_setting keys are subject to this trimming.
-   *   <li>{@link Rule#useToolchainResolution() supports conditional toolchain resolution for
+   *   <li>{@link Rule#useToolchainResolution(Rule) supports conditional toolchain resolution for
    *      targets with non-empty select()s. This requirement would go away if platform info was
    *      prepared for all rules regardless of toolchain needs.
    * </ol>
@@ -721,7 +675,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
-    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
+    private TransitionFactory<RuleTransitionData> transitionFactory = NoTransition.getFactory();
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
@@ -753,7 +707,7 @@ public class RuleClass implements RuleClassData {
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
-    private ToolchainResolutionMode useToolchainResolution = ToolchainResolutionMode.INHERIT;
+    private ToolchainResolutionMode toolchainResolutionMode = ToolchainResolutionMode.ENABLED;
     private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -794,8 +748,6 @@ public class RuleClass implements RuleClassData {
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
         addToolchainTypes(parent.getToolchainTypes());
-        this.useToolchainResolution =
-            this.useToolchainResolution.apply(name, parent.useToolchainResolution);
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
@@ -895,7 +847,7 @@ public class RuleClass implements RuleClassData {
 
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
-        this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
+        this.toolchainResolutionMode(ToolchainResolutionMode.DISABLED);
       }
 
       if (starlark
@@ -950,7 +902,7 @@ public class RuleClass implements RuleClassData {
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           toolchainTypes,
-          useToolchainResolution,
+          toolchainResolutionMode,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1141,7 +1093,8 @@ public class RuleClass implements RuleClassData {
           type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'",
           name);
-      Preconditions.checkState(this.transitionFactory == null, "Property cfg has already been set");
+      Preconditions.checkState(
+          NoTransition.isInstance(this.transitionFactory), "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
       Preconditions.checkArgument(
           transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE));
@@ -1157,20 +1110,14 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * State that the rule class being built possibly supplies the specified provider to its direct
-     * dependencies.
+     * State that the rule class being built always supplies the specified provider.
      *
      * <p>When computing the set of aspects required for a rule, only the providers listed here are
-     * considered. The presence of a provider here does not mean that the rule <b>must</b> implement
-     * said provider, merely that it <b>can</b>. After the configured target is constructed from
-     * this rule, aspects will be filtered according to the set of actual providers.
+     * considered. The presence of a provider here means that the rule <b>must</b> implement said
+     * provider.
      *
      * <p>This is here so that we can do the loading phase overestimation required for "blaze
      * query", which does not have the configured targets available.
-     *
-     * <p>It's okay for the rule class eventually not to supply it (possibly based on analysis phase
-     * logic), but if a provider is not advertised but is supplied, aspects that require the it will
-     * not be evaluated for the rule.
      */
     @CanIgnoreReturnValue
     public Builder advertiseProvider(Class<?>... providers) {
@@ -1590,8 +1537,8 @@ public class RuleClass implements RuleClassData {
      * DISABLED}.
      */
     @CanIgnoreReturnValue
-    public Builder useToolchainResolution(ToolchainResolutionMode mode) {
-      this.useToolchainResolution = mode;
+    public Builder toolchainResolutionMode(ToolchainResolutionMode mode) {
+      this.toolchainResolutionMode = mode;
       return this;
     }
 
@@ -1680,7 +1627,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1742,7 +1689,7 @@ public class RuleClass implements RuleClassData {
   private final boolean supportsConstraintChecking;
 
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
-  private final ToolchainResolutionMode useToolchainResolution;
+  private final ToolchainResolutionMode toolchainResolutionMode;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1788,7 +1735,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
@@ -1803,7 +1750,7 @@ public class RuleClass implements RuleClassData {
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       Set<ToolchainTypeRequirement> toolchainTypes,
-      ToolchainResolutionMode useToolchainResolution,
+      ToolchainResolutionMode toolchainResolutionMode,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1845,7 +1792,7 @@ public class RuleClass implements RuleClassData {
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
-    this.useToolchainResolution = useToolchainResolution;
+    this.toolchainResolutionMode = toolchainResolutionMode;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -1898,7 +1845,6 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
-  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
@@ -2652,12 +2598,8 @@ public class RuleClass implements RuleClassData {
     return toolchainTypes;
   }
 
-  /**
-   * Public callers should use {@link Rule#useToolchainResolution()}, which also takes into account
-   * target-specific information.
-   */
-  ToolchainResolutionMode useToolchainResolution() {
-    return this.useToolchainResolution;
+  boolean useToolchainResolution(Rule rule) {
+    return this.toolchainResolutionMode.useToolchainResolution(rule);
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {
