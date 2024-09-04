@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -71,9 +72,14 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
+  @Override
+  public String getJavaPathString(PathFragment path) {
+    return StringUtil.reencodeInternalToJavaIo(path.getPathString());
+  }
+
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(path.toString());
+    return new FileInputStream(getJavaPathString(path));
   }
 
   /** Returns either normal or profiled FileInputStream. */
@@ -108,7 +114,8 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     try {
       // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
-      return Files.newByteChannel(Paths.get(name), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
+      return Files.newByteChannel(
+          Paths.get(getJavaPathString(path)), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
     } finally {
       if (shouldProfile) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
@@ -129,12 +136,12 @@ public abstract class AbstractFileSystem extends FileSystem {
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new ProfiledFileOutputStream(name, append);
+        return new ProfiledFileOutputStream(getJavaPathString(path), append);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      return new FileOutputStream(name, append);
+      return new FileOutputStream(getJavaPathString(path), append);
     }
   }
 
