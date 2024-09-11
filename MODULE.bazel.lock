@@ -138,6 +138,7 @@
     "https://bcr.bazel.build/modules/rules_java/6.0.0/MODULE.bazel": "8a43b7df601a7ec1af61d79345c17b31ea1fedc6711fd4abfd013ea612978e39",
     "https://bcr.bazel.build/modules/rules_java/6.4.0/MODULE.bazel": "e986a9fe25aeaa84ac17ca093ef13a4637f6107375f64667a15999f77db6c8f6",
     "https://bcr.bazel.build/modules/rules_java/6.5.2/MODULE.bazel": "1d440d262d0e08453fa0c4d8f699ba81609ed0e9a9a0f02cd10b3e7942e61e31",
+    "https://bcr.bazel.build/modules/rules_java/7.11.1/MODULE.bazel": "b4782e019dd0b0151bd49fd8929136fd4441f527eb208fbd991b77e480b7236e",
     "https://bcr.bazel.build/modules/rules_java/7.12.1/MODULE.bazel": "0a2ebb53b48a6eb092aef24b36db23294d4d3ebf96bff02b0ccc962bdc70717d",
     "https://bcr.bazel.build/modules/rules_java/7.12.1/source.json": "2ab5ceabe9d87a773fa44e4cce42c950e34ff6d2f5164e7413088542fa4f1f3e",
     "https://bcr.bazel.build/modules/rules_java/7.2.0/MODULE.bazel": "06c0334c9be61e6cef2c8c84a7800cef502063269a5af25ceb100b192453d4ab",
@@ -225,6 +226,291 @@
             "apple_support+",
             "bazel_tools",
             "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@gazelle+//:extensions.bzl%go_deps": {
+      "general": {
+        "bzlTransitiveDigest": "KnJM36BNWe/NP/TKDbrmkLH1Oa6KLGvHqjuwR0tQom0=",
+        "usagesDigest": "PIsHZ918JQdt7pO52RB+yz+Z2m9WfTiRnG9m6Zp5BPs=",
+        "recordedFileInputs": {
+          "@@gazelle+//go.sum": "c9624aa41e5ffd61a8581d57a3c4046e62b46630dddc8b191e65017f34ff12a5",
+          "@@rules_go+//go.mod": "a7143f329c2a3e0b983ce74a96c0c25b0d0c59d236d75f7e1b069aadd988d55e",
+          "@@gazelle+//go.mod": "5346019bf0673364b383d56ffbc9fced98b7b4ee921e865dfe905a1ebe82d326",
+          "@@rules_go+//go.sum": "022d36c9ebcc7b5dee1e9b85b3da9c9f3a529ee6f979946d66e4955b8d54614a"
+        },
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "com_github_fsnotify_fsnotify": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/fsnotify/fsnotify",
+              "sum": "h1:n+5WquG0fcWoWp6xPWfHdbskMCQaFnG6PfBrh1Ky4HY=",
+              "replace": "",
+              "version": "v1.6.0",
+              "build_directives": []
+            }
+          },
+          "org_golang_x_text": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/text",
+              "sum": "h1:cokOdA+Jmi5PJGXLlLllQSgYigAEfHXJAERHVMaCc2k=",
+              "replace": "",
+              "version": "v0.3.3",
+              "build_directives": []
+            }
+          },
+          "org_golang_google_protobuf": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "google.golang.org/protobuf",
+              "sum": "h1:w43yiav+6bVFTBQFZX0r7ipe9JQ1QsbMgHwbBziscLw=",
+              "replace": "",
+              "version": "v1.28.0",
+              "build_directives": []
+            }
+          },
+          "com_github_bmatcuk_doublestar_v4": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/bmatcuk/doublestar/v4",
+              "sum": "h1:HTuxyug8GyFbRkrffIpzNCSK4luc0TY3wzXvzIZhEXc=",
+              "replace": "",
+              "version": "v4.6.0",
+              "build_directives": []
+            }
+          },
+          "com_github_pmezard_go_difflib": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/pmezard/go-difflib",
+              "sum": "h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=",
+              "replace": "",
+              "version": "v1.0.0",
+              "build_directives": []
+            }
+          },
+          "org_golang_x_mod": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/mod",
+              "sum": "h1:KENHtAZL2y3NLMYZeHY9DW8HW8V+kQyJsY/V9JlKvCs=",
+              "replace": "",
+              "version": "v0.9.0",
+              "build_directives": []
+            }
+          },
+          "org_golang_x_tools": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/tools",
+              "sum": "h1:W4OVu8VVOaIO0yzWMNdepAulS7YfoS3Zabrm8DOXXU4=",
+              "replace": "",
+              "version": "v0.7.0",
+              "build_directives": []
+            }
+          },
+          "org_golang_x_net": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/net",
+              "sum": "h1:4nGaVu0QrbjT/AK2PRLuQfQuh6DJve+pELhqTdAj3x0=",
+              "replace": "",
+              "version": "v0.0.0-20210405180319-a5a99cb37ef4",
+              "build_directives": []
+            }
+          },
+          "com_github_bazelbuild_buildtools": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/bazelbuild/buildtools",
+              "sum": "h1:XmPu4mXICgdGnC5dXGjUGbwUD/kUmS0l5Aop3LaevBM=",
+              "replace": "",
+              "version": "v0.0.0-20230317132445-9c3c1fc0106e",
+              "build_directives": []
+            }
+          },
+          "org_golang_google_genproto": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "google.golang.org/genproto",
+              "sum": "h1:+kGHl1aib/qcwaRi1CbqBZ1rk19r85MNUf8HaBghugY=",
+              "replace": "",
+              "version": "v0.0.0-20200526211855-cb27e3aa2013",
+              "build_directives": []
+            }
+          },
+          "com_github_gogo_protobuf": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/gogo/protobuf",
+              "sum": "h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=",
+              "replace": "",
+              "version": "v1.3.2",
+              "build_directives": [
+                "gazelle:proto disable"
+              ]
+            }
+          },
+          "com_github_pelletier_go_toml": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/pelletier/go-toml",
+              "sum": "h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=",
+              "replace": "",
+              "version": "v1.9.5",
+              "build_directives": []
+            }
+          },
+          "com_github_golang_protobuf": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/golang/protobuf",
+              "sum": "h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=",
+              "replace": "",
+              "version": "v1.5.2",
+              "build_directives": []
+            }
+          },
+          "com_github_golang_mock": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/golang/mock",
+              "sum": "h1:ErTB+efbowRARo13NNdxyJji2egdxLGQhRaY+DUumQc=",
+              "replace": "",
+              "version": "v1.6.0",
+              "build_directives": []
+            }
+          },
+          "org_golang_x_sync": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/sync",
+              "sum": "h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=",
+              "replace": "",
+              "version": "v0.1.0",
+              "build_directives": []
+            }
+          },
+          "bazel_gazelle_go_repository_config": {
+            "bzlFile": "@@gazelle+//internal/bzlmod:go_deps.bzl",
+            "ruleClassName": "_go_repository_config",
+            "attributes": {
+              "importpaths": {
+                "com_github_gogo_protobuf": "github.com/gogo/protobuf",
+                "com_github_golang_mock": "github.com/golang/mock",
+                "com_github_golang_protobuf": "github.com/golang/protobuf",
+                "org_golang_google_protobuf": "google.golang.org/protobuf",
+                "org_golang_x_net": "golang.org/x/net",
+                "org_golang_x_sys": "golang.org/x/sys",
+                "org_golang_x_text": "golang.org/x/text",
+                "org_golang_google_genproto": "google.golang.org/genproto",
+                "org_golang_google_grpc": "google.golang.org/grpc",
+                "com_github_bazelbuild_buildtools": "github.com/bazelbuild/buildtools",
+                "com_github_bmatcuk_doublestar_v4": "github.com/bmatcuk/doublestar/v4",
+                "com_github_fsnotify_fsnotify": "github.com/fsnotify/fsnotify",
+                "com_github_google_go_cmp": "github.com/google/go-cmp",
+                "com_github_pelletier_go_toml": "github.com/pelletier/go-toml",
+                "com_github_pmezard_go_difflib": "github.com/pmezard/go-difflib",
+                "org_golang_x_mod": "golang.org/x/mod",
+                "org_golang_x_sync": "golang.org/x/sync",
+                "org_golang_x_tools": "golang.org/x/tools"
+              },
+              "build_naming_conventions": {}
+            }
+          },
+          "org_golang_google_grpc": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "google.golang.org/grpc",
+              "sum": "h1:fPVVDxY9w++VjTZsYvXWqEf9Rqar/e+9zYfxKK+W+YU=",
+              "replace": "",
+              "version": "v1.50.0",
+              "build_directives": [
+                "gazelle:proto disable"
+              ]
+            }
+          },
+          "org_golang_x_sys": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "golang.org/x/sys",
+              "sum": "h1:MVltZSvRTcU2ljQOhs94SXPftV6DCNnZViHeQps87pQ=",
+              "replace": "",
+              "version": "v0.6.0",
+              "build_directives": []
+            }
+          },
+          "com_github_google_go_cmp": {
+            "bzlFile": "@@gazelle+//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/google/go-cmp",
+              "sum": "h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=",
+              "replace": "",
+              "version": "v0.5.9",
+              "build_directives": []
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "gazelle+",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@gazelle+//internal/bzlmod:non_module_deps.bzl%non_module_deps": {
+      "general": {
+        "bzlTransitiveDigest": "30wev+wJfzc4s72MCfbP9U8W+3Js2b+Xbo5ofgZbHw8=",
+        "usagesDigest": "+xCT9pRvDnsW7iI58SOYi7xcZx59eX5FMxOaQkThPC4=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bazel_gazelle_go_repository_tools": {
+            "bzlFile": "@@gazelle+//internal:go_repository_tools.bzl",
+            "ruleClassName": "go_repository_tools",
+            "attributes": {
+              "go_cache": "@@gazelle++non_module_deps+bazel_gazelle_go_repository_cache//:go.env"
+            }
+          },
+          "bazel_gazelle_go_repository_cache": {
+            "bzlFile": "@@gazelle+//internal:go_repository_cache.bzl",
+            "ruleClassName": "go_repository_cache",
+            "attributes": {
+              "go_sdk_name": "go_default_sdk",
+              "go_env": {}
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "gazelle+",
+            "bazel_gazelle_go_repository_cache",
+            "gazelle++non_module_deps+bazel_gazelle_go_repository_cache"
           ]
         ]
       }
@@ -1285,12 +1571,12 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "jeCqJtbejhsER95k9iTcgSqPQBA237FL7V92F15xKNU=",
-        "usagesDigest": "TxwWwvPhX2laRh3nyc7qyXrz4mKY0/zGy9fgoMyV50A=",
+        "usagesDigest": "g4edPXFfCe1EoBgfiXYE3kDNT7vSR3amVoNckfMtEW4=",
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b",
-          "@@//maven_install.json": "fd1fd0dbe7307e679aa66b8808247d56f683328a65b9ce7768f42b6b293d5e4d"
+          "@@//maven_install.json": "5d34527bb8b1bc9b14eca9ec868dce208e227015cf10946cfd1e02d22784f91b"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1398,18 +1684,6 @@
                 "https://repo.maven.apache.org/maven2/com/ryanharter/auto/value/auto-value-gson-factory/1.3.1/auto-value-gson-factory-1.3.1.jar"
               ],
               "downloaded_file_path": "v1/com/ryanharter/auto/value/auto-value-gson-factory/1.3.1/auto-value-gson-factory-1.3.1.jar"
-            }
-          },
-          "io_github_eisop_dataflow_errorprone_3_41_0_eisop1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "10434fba4e53f55fa9c76904cde414b918932548c9dfc4e2d634ac05ff7a7d10",
-              "urls": [
-                "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.41.0-eisop1/dataflow-errorprone-3.41.0-eisop1.jar",
-                "https://repo.maven.apache.org/maven2/io/github/eisop/dataflow-errorprone/3.41.0-eisop1/dataflow-errorprone-3.41.0-eisop1.jar"
-              ],
-              "downloaded_file_path": "v1/io/github/eisop/dataflow-errorprone/3.41.0-eisop1/dataflow-errorprone-3.41.0-eisop1.jar"
             }
           },
           "software_amazon_awssdk_endpoints_spi_2_20_128": {
@@ -1884,6 +2158,7 @@
               "generate_compat_repositories": false,
               "version_conflict_policy": "default",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -2012,7 +2287,7 @@
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.11.0\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
-                "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
+                "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.4\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.32.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.32.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.32.0\" }",
@@ -2034,6 +2309,7 @@
                 "{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }",
                 "{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }",
                 "{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }",
+                "{ \"group\": \"io.github.eisop\", \"artifact\": \"dataflow-errorprone\", \"version\": \"3.42.0-eisop4\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"io.github.java-diff-utils\", \"artifact\": \"java-diff-utils\", \"version\": \"4.12\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-api\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-auth\", \"version\": \"1.66.0\" }",
@@ -2080,7 +2356,7 @@
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
-                "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }",
+                "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.47.0\" }",
                 "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-core\", \"version\": \"1.37\" }",
                 "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-generator-annprocess\", \"version\": \"1.37\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
@@ -2155,6 +2431,7 @@
               "generate_compat_repositories": false,
               "version_conflict_policy": "default",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -2249,18 +2526,6 @@
                 "https://repo1.maven.org/maven2/com/android/tools/analytics-library/protos/30.1.3/protos-30.1.3.jar"
               ],
               "downloaded_file_path": "v1/com/android/tools/analytics-library/protos/30.1.3/protos-30.1.3.jar"
-            }
-          },
-          "org_checkerframework_checker_qual_3_42_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "ccaedd33af0b7894d9f2f3b644f4d19e43928e32902e61ac4d10777830f5aac7",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.42.0/checker-qual-3.42.0.jar",
-                "https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.42.0/checker-qual-3.42.0.jar"
-              ],
-              "downloaded_file_path": "v1/org/checkerframework/checker-qual/3.42.0/checker-qual-3.42.0.jar"
             }
           },
           "org_ow2_asm_asm_9_6": {
@@ -2695,6 +2960,7 @@
               "generate_compat_repositories": false,
               "version_conflict_policy": "default",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -2943,6 +3209,7 @@
               "generate_compat_repositories": false,
               "maven_install_json": "@@rules_jvm_external+//:rules_jvm_external_deps_install.json",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -3061,18 +3328,6 @@
               "downloaded_file_path": "v1/io/grpc/grpc-auth/1.56.1/grpc-auth-1.56.1.jar"
             }
           },
-          "com_google_code_java_allocation_instrumenter_java_allocation_instrumenter_3_3_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "1ef5535a8bd41cf3072469f381b9ee6ab28275311a7499f53d6e52adf976fef0",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar",
-                "https://repo.maven.apache.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
-            }
-          },
           "org_jetbrains_kotlin_kotlin_stdlib_jdk7_1_4_32": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3109,6 +3364,7 @@
               "generate_compat_repositories": false,
               "maven_install_json": "@@//src/tools/android:maven_android_install.json",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -3337,6 +3593,18 @@
               "downloaded_file_path": "v1/com/google/auth/google-auth-library-oauth2-http/1.23.0/google-auth-library-oauth2-http-1.23.0.jar"
             }
           },
+          "com_google_code_java_allocation_instrumenter_java_allocation_instrumenter_3_3_4": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "44f8cddec129520b2532fa9ff25f9572d7566307d660635ba32bf409f06ae336",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.4/java-allocation-instrumenter-3.3.4.jar",
+                "https://repo.maven.apache.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.4/java-allocation-instrumenter-3.3.4.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.4/java-allocation-instrumenter-3.3.4.jar"
+            }
+          },
           "org_osgi_org_osgi_resource_1_0_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3458,6 +3726,7 @@
               "generate_compat_repositories": false,
               "version_conflict_policy": "default",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -3690,6 +3959,7 @@
               "generate_compat_repositories": false,
               "maven_install_json": "@@stardoc+//:maven_install.json",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -4172,6 +4442,18 @@
               "downloaded_file_path": "v1/com/google/truth/truth/1.4.2/truth-1.4.2.jar"
             }
           },
+          "org_checkerframework_checker_qual_3_47_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "9840a77c175a95a60c66da8f506871a907a6c4fc8a703bef38c715bc6d4de626",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.47.0/checker-qual-3.47.0.jar",
+                "https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.47.0/checker-qual-3.47.0.jar"
+              ],
+              "downloaded_file_path": "v1/org/checkerframework/checker-qual/3.47.0/checker-qual-3.47.0.jar"
+            }
+          },
           "org_apache_maven_maven_artifact_3_9_4": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4560,6 +4842,7 @@
               "generate_compat_repositories": false,
               "version_conflict_policy": "default",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
@@ -4732,6 +5015,18 @@
                 "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.jar"
               ],
               "downloaded_file_path": "v1/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.jar"
+            }
+          },
+          "io_github_eisop_dataflow_errorprone_3_42_0_eisop4": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "d961d19fca18fe4adb184908c2b212533d9219629f9d21a543153dbd9273b2d7",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.42.0-eisop4/dataflow-errorprone-3.42.0-eisop4.jar",
+                "https://repo.maven.apache.org/maven2/io/github/eisop/dataflow-errorprone/3.42.0-eisop4/dataflow-errorprone-3.42.0-eisop4.jar"
+              ],
+              "downloaded_file_path": "v1/io/github/eisop/dataflow-errorprone/3.42.0-eisop4/dataflow-errorprone-3.42.0-eisop4.jar"
             }
           },
           "com_google_api_api_common_2_15_0": {
@@ -5330,7 +5625,7 @@
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.11.0\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
-                "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
+                "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.4\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.32.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.32.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.32.0\" }",
@@ -5352,6 +5647,7 @@
                 "{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }",
                 "{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }",
                 "{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }",
+                "{ \"group\": \"io.github.eisop\", \"artifact\": \"dataflow-errorprone\", \"version\": \"3.42.0-eisop4\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"io.github.java-diff-utils\", \"artifact\": \"java-diff-utils\", \"version\": \"4.12\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-api\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-auth\", \"version\": \"1.66.0\" }",
@@ -5398,7 +5694,7 @@
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
-                "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }",
+                "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.47.0\" }",
                 "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-core\", \"version\": \"1.37\" }",
                 "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-generator-annprocess\", \"version\": \"1.37\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
@@ -5467,6 +5763,7 @@
               "generate_compat_repositories": false,
               "maven_install_json": "@@//:maven_install.json",
               "override_targets": {
+                "com.google.api.grpc:proto-google-common-protos": "'@@googleapis+//google/rpc:rpc_java_proto'",
                 "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
                 "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
                 "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
