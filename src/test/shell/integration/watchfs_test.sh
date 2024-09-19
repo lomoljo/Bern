@@ -100,6 +100,11 @@ function test_both() {
 }
 
 function test_large_number_of_files() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific JVM flags.
+    return 0
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > "$pkg/BUILD" << 'EOF'
