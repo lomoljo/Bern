@@ -914,13 +914,13 @@ public final class CppConfiguration extends Fragment
   }
 
   @StarlarkMethod(
-      name = "experimental_cc_implementation_deps",
+      name = "cc_implementation_deps",
       documented = false,
       useStarlarkThread = true)
-  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+  public boolean ccImplementationDepsForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcImplementationDeps();
+    return ccImplementationDeps();
   }
 
   @StarlarkMethod(name = "experimental_cpp_modules", documented = false, useStarlarkThread = true)
@@ -929,8 +929,8 @@ public final class CppConfiguration extends Fragment
     return experimentalCppModules();
   }
 
-  public boolean experimentalCcImplementationDeps() {
-    return cppOptions.experimentalCcImplementationDeps;
+  public boolean ccImplementationDeps() {
+    return cppOptions.ccImplementationDeps;
   }
 
   public boolean experimentalCppModules() {
