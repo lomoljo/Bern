@@ -376,6 +376,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
         ":resolution",
         ":root_module_file_fixup",
         ":tidy",
@@ -414,6 +415,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
         ":inspection",
         ":module_extension",
         ":resolution",

@@ -186,8 +186,16 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
         ImmutableSetMultimap.builder();
     for (SingleExtensionValue.Key singleExtensionKey : singleExtensionKeys) {
-      SingleExtensionValue singleExtensionValue =
-          (SingleExtensionValue) singleExtensionValues.get(singleExtensionKey);
+      SingleExtensionValue singleExtensionValue;
+      try {
+        singleExtensionValue =
+            (SingleExtensionValue)
+                singleExtensionValues.getOrThrow(singleExtensionKey, ExternalDepsException.class);
+      } catch (ExternalDepsException e) {
+        // The extension failed, so we can't report its generated repos. We can still report the
+        // imported repos in keep going mode, so don't fail and just skip this extension.
+        continue;
+      }
       if (singleExtensionValue == null) {
         return null;
       }
