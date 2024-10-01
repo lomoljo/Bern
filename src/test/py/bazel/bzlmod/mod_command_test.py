@@ -241,7 +241,21 @@ class ModCommandTest(test_base.TestBase):
         'wrong output in graph query with extension filter specified',
     )
 
-  def testGraphWithExtensionsKeepGoing(self):
+  def testGraphWithFailingExtensions(self):
+    # Force ext2 to fail.
+    with open(self.Path('MODULE.bazel'), 'a+') as f:
+      f.write("ext2.dep(name = 'repo2')\n")
+      f.write("ext2.dep(name = 'fail')\n")
+
+    exit_code, _, stderr = self.RunBazel(
+      ['mod', 'graph', '--extension_info=all'],
+      rstrip=True, allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn('\t\tfail("ext failed")', stderr)
+    self.assertIn('Error in fail: ext failed', stderr)
+
+  def testGraphWithFailingExtensionsKeepGoing(self):
     # Force ext2 to fail.
     with open(self.Path('MODULE.bazel'), 'a+') as f:
       f.write("ext2.dep(name = 'repo2')\n")

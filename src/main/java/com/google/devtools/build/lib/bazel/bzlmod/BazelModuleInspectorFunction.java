@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -42,6 +43,8 @@ import javax.annotation.Nullable;
  * inspection. By this stage, the Bazel module resolution should have been completed.
  */
 public class BazelModuleInspectorFunction implements SkyFunction {
+
+  public static final Precomputed<Boolean> KEEP_GOING = new Precomputed<>("BAZEL_MOD_KEEP_GOING");
 
   @Override
   @Nullable
@@ -68,7 +71,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);
 
     ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames =
-        computeExtensionToRepoInternalNames(depGraphValue, env);
+        computeExtensionToRepoInternalNames(depGraphValue, env, KEEP_GOING.get(env));
     if (extensionToRepoInternalNames == null) {
       return null;
     }
@@ -176,7 +179,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Nullable
   private ImmutableSetMultimap<ModuleExtensionId, String> computeExtensionToRepoInternalNames(
-      BazelDepGraphValue depGraphValue, Environment env) throws InterruptedException {
+      BazelDepGraphValue depGraphValue, Environment env, boolean keepGoing)
+      throws InterruptedException {
     ImmutableSet<ModuleExtensionId> extensionEvalKeys =
         depGraphValue.getExtensionUsagesTable().rowKeySet();
     ImmutableList<SingleExtensionValue.Key> singleExtensionKeys =
@@ -187,14 +191,18 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         ImmutableSetMultimap.builder();
     for (SingleExtensionValue.Key singleExtensionKey : singleExtensionKeys) {
       SingleExtensionValue singleExtensionValue;
-      try {
-        singleExtensionValue =
-            (SingleExtensionValue)
-                singleExtensionValues.getOrThrow(singleExtensionKey, ExternalDepsException.class);
-      } catch (ExternalDepsException e) {
-        // The extension failed, so we can't report its generated repos. We can still report the
-        // imported repos in keep going mode, so don't fail and just skip this extension.
-        continue;
+      if (keepGoing) {
+        try {
+          singleExtensionValue =
+              (SingleExtensionValue)
+                  singleExtensionValues.getOrThrow(singleExtensionKey, ExternalDepsException.class);
+        } catch (ExternalDepsException e) {
+          // The extension failed, so we can't report its generated repos. We can still report the
+          // imported repos in keep going mode, so don't fail and just skip this extension.
+          continue;
+        }
+      } else {
+        singleExtensionValue = (SingleExtensionValue) singleExtensionValues.get(singleExtensionKey);
       }
       if (singleExtensionValue == null) {
         return null;
