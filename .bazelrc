@@ -53,6 +53,10 @@ build --java_language_version=21
 build --tool_java_language_version=21
 build --tool_java_runtime_version=21
 
+# Fail if a production classpath contains different versions of the same class
+build --experimental_one_version_enforcement=ERROR
+build --noone_version_enforcement_on_java_tests
+
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 common --incompatible_disallow_empty_glob
 
